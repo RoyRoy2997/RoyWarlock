@@ -9,75 +9,37 @@ local talents = Aurora.SpellHandler.Spellbooks.warlock["3"].RoyWarlock.talents
 
 -- 战斗前动作（仅非伤害性技能）
 local function PreCombat()
-    -- actions.precombat=snapshot_stats（Aurora自动处理，无需额外代码）
 
-    -- actions.precombat+=/summon_pet
-    if spells.summon_pet:isusable() and spells.summon_pet:getcd() <= 0 then
-        spells.summon_pet:cast(player)
-        return true
-    end
-
-    -- actions.precombat+=/grimoire_of_sacrifice,if=talent.grimoire_of_sacrifice.enabled
-    if talents.grimoire_of_sacrifice:isknown() and spells.grimoire_of_sacrifice:isusable() and spells.grimoire_of_sacrifice:getcd() <= 0 then
-        spells.grimoire_of_sacrifice:cast(player)
-        return true
-    end
-
-    -- actions.precombat+=/soul_fire
-    if spells.soul_fire:isusable() and spells.soul_fire:getcd() <= 0 then
-        spells.soul_fire:cast(target)
-        return true
-    end
-
-    -- actions.precombat+=/incinerate
-    if spells.incinerate:isusable() and spells.incinerate:getcd() <= 0 then
-        spells.incinerate:cast(target)
-        return true
-    end
-
-    return false
 end
 
 -- 冷却技能列表（按顺序执行）
 local function Cooldowns()
-    -- actions.cooldowns=potion
-    if spells.potion:isusable() and spells.potion:getcd() <= 0 then
-        spells.potion:cast(player)
-        return true
-    end
-
     -- actions.cooldowns+=/blood_fury（兽人种族技能）
-    if spells.blood_fury:isusable() and spells.blood_fury:getcd() <= 0 then
+    if spells.blood_fury:isknown() and spells.blood_fury:ready() and spells.blood_fury:castable(player) then
         spells.blood_fury:cast(player)
         return true
     end
 
     -- actions.cooldowns+=/berserking（巨魔种族技能）
-    if spells.berserking:isusable() and spells.berserking:getcd() <= 0 then
+    if spells.berserking:isknown() and spells.berserking:ready() and spells.berserking:castable(player) then
         spells.berserking:cast(player)
         return true
     end
 
     -- actions.cooldowns+=/fireblood（火焰之血种族技能）
-    if spells.fireblood:isusable() and spells.fireblood:getcd() <= 0 then
+    if spells.fireblood:isknown() and spells.fireblood:ready() and spells.fireblood:castable(player) then
         spells.fireblood:cast(player)
         return true
     end
 
     -- actions.cooldowns+=/ancestral_call（先祖召唤种族技能）
-    if spells.ancestral_call:isusable() and spells.ancestral_call:getcd() <= 0 then
+    if spells.ancestral_call:isknown() and spells.ancestral_call:ready() and spells.ancestral_call:castable(player) then
         spells.ancestral_call:cast(player)
         return true
     end
 
-    -- actions.cooldowns+=/use_items（使用装备主动效果）
-    local useItems = Aurora.Util.UseItems() -- Aurora内置装备使用函数
-    if useItems then
-        return true
-    end
-
     -- actions.cooldowns+=/summon_infernal
-    if spells.summon_infernal:isusable() and spells.summon_infernal:getcd() <= 0 then
+    if spells.summon_infernal:isknown() and spells.summon_infernal:ready() and spells.summon_infernal:castable(player) then
         spells.summon_infernal:cast(target)
         return true
     end
