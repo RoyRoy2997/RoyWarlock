@@ -86,6 +86,22 @@ local skillCooldowns = {
 
 
 
+-- ===== 新增：拉怪补DOT模式全局变量 =====
+
+local prepullDotMode = {
+
+    isEnabled = false, -- 模式是否开启
+
+    startTime = 0,     -- 模式开启时间戳
+
+    autoCloseTime = 5  -- 自动关闭时间（5秒）
+
+}
+
+
+
+
+
 
 
 -- 【新增】灵魂石战复相关变量
@@ -123,11 +139,11 @@ local function ShouldUseLongCooldownTeamAware()
 
 
 
-    local avgTTD = Aurora.grouprawttd and Aurora.grouprawttd() or Aurora.groupttd()
+    local avgTTD = Aurora.grouprawttd()
 
+    print(avgTTD, Aurora.grouphp())
 
-
-    return avgTTD and avgTTD > ttdThreshold and avgTTD < 333 or avgTTD == 999
+    return avgTTD and avgTTD > ttdThreshold
 end
 
 
@@ -742,6 +758,10 @@ end
 
 
 
+
+
+
+
 -- 冷却技能列表（按顺序执行）
 
 local function Dps()
@@ -1238,7 +1258,8 @@ local function CheckRotationVersion()
 
         print("• 添加灵魂石战复功能")
 
-     
+        print("• 添加爆燃冲刺按键控制")
+
         print("• 添加读条暂停功能")
 
         print("=============================")
