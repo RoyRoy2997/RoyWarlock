@@ -124,27 +124,29 @@ end
 
 
 
--- 【新增】TTD团队感知判断（用于地狱火和怨毒）
+-- -- 【新增】TTD团队感知判断（用于地狱火和怨毒）
 
-local function ShouldUseLongCooldownTeamAware()
-    local ttdEnabled = GetConfig("ttd_enabled", true)
+-- local function ShouldUseLongCooldownTeamAware()
 
-    local ttdThreshold = GetConfig("ttd_threshold", 15)
+--     local ttdEnabled = GetConfig("ttd_enabled", true)
 
-
-
-    if not ttdEnabled then return true end
-
-    if not player.combat then return false end
+--     local ttdThreshold = GetConfig("ttd_threshold", 15)
 
 
 
-    local avgTTD = Aurora.grouprawttd()
+--     if not ttdEnabled then return true end
 
-    print(avgTTD, Aurora.grouphp())
+--     if not player.combat then return false end
 
-    return avgTTD and avgTTD > ttdThreshold
-end
+
+
+--     local avgTTD = Aurora.grouprawttd()
+
+--     print(avgTTD, Aurora.grouphp())
+
+--     return avgTTD and avgTTD > ttdThreshold
+
+-- end
 
 
 
@@ -379,7 +381,7 @@ local function HardControlInterrupts()
 
                     offsetMin = 0,
 
-                    offsetMax = 30,
+                    offsetMax = 40,
 
                     filter = function(unit, distance, position)
                         return unit.enemy and unit.alive
@@ -838,12 +840,12 @@ local function Dps()
 
 
     if spells.cataclysm:isknown() and spells.cataclysm:ready() and spells.cataclysm:castable(player) then
-        if active_enemies >= 2 and ShouldUseLongCooldownTeamAware() then
+        if active_enemies >= 2 then
             spells.cataclysm:smartaoe(target, {
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
 
-                offsetMax = 30, -- 最大偏移距离（限制释放范围）
+                offsetMax = 40, -- 最大偏移距离（限制释放范围）
 
                 filter = function(unit, distance, position)
                     -- 过滤条件：只统计存活的敌人
@@ -883,7 +885,7 @@ local function Dps()
 
 
 
-    if Aurora.Rotation.Cooldown:GetValue() and ShouldUseLongCooldownTeamAware() then --cooldown
+    if Aurora.Rotation.Cooldown:GetValue() then --cooldown
         -- actions.cooldowns+=/blood_fury（兽人种族技能）
 
         if spells.blood_fury:isknown() and spells.blood_fury:ready() and spells.blood_fury:castable(player) then
@@ -931,7 +933,7 @@ local function Dps()
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
 
-                offsetMax = 30, -- 最大偏移距离（限制释放范围）
+                offsetMax = 40, -- 最大偏移距离（限制释放范围）
 
                 filter = function(unit, distance, position)
                     -- 过滤条件：只统计存活的敌人
@@ -940,6 +942,14 @@ local function Dps()
                 end
 
             })
+
+            return true
+        end
+
+        -- actions.assisted_combat+=/malevolence --怨毒
+
+        if spells.malevolence and spells.malevolence:ready() and spells.malevolence:castable(player) then
+            spells.malevolence:cast(player)
 
             return true
         end
@@ -967,15 +977,7 @@ local function Dps()
         end
     end
 
-    -- actions.assisted_combat+=/malevolence --怨毒
 
-    if spells.malevolence and spells.malevolence:ready() and spells.malevolence:castable(player) then
-        if ShouldUseLongCooldownTeamAware() then
-            spells.malevolence:cast(player)
-
-            return true
-        end
-    end
 
     -- actions.assisted_combat+=/channel_demonfire,if=target.distance<=40  --引导恶魔之火
 
@@ -995,7 +997,7 @@ local function Dps()
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
 
-                offsetMax = 30, -- 最大偏移距离（限制释放范围）
+                offsetMax = 40, -- 最大偏移距离（限制释放范围）
 
                 filter = function(unit, distance, position)
                     -- 过滤条件：只统计存活的敌人
@@ -1017,7 +1019,7 @@ local function Dps()
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
 
-                offsetMax = 30, -- 最大偏移距离（限制释放范围）
+                offsetMax = 40, -- 最大偏移距离（限制释放范围）
 
                 filter = function(unit, distance, position)
                     -- 过滤条件：只统计存活的敌人
@@ -1106,11 +1108,9 @@ local function Dps()
     -- actions.assisted_combat+=/ruination,if=active_enemies<=2
 
     if spells.ruination and spells.ruination:ready() and spells.ruination:castable(target) then
-        if active_enemies <= 2 then
-            spells.chaos_bolt:cast(target)
+        spells.chaos_bolt:cast(target)
 
-            return true
-        end
+        return true
     end
 
     -- actions.assisted_combat+=/chaos_bolt,if=active_enemies<=2

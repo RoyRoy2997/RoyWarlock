@@ -6,7 +6,7 @@ local L = {
     zh = {
         category = "Roy_Warlock设置",
         general = "常用设置",
-        combat = "战斗设置",
+        -- combat = "战斗设置",
         defensive = "减伤设置",
         interrupt = "打断设置",
         pet = "宠物设置",
@@ -20,12 +20,12 @@ local L = {
         tutorial = "使用教程",
         tutorial_text = "毁灭术专精循环，包含智能宠物管理、基础减伤和打断功能。",
 
-        -- 战斗设置
-        ttd_settings = "TTD设置",
-        ttd_enabled = "启用TTD判断",
-        ttd_enabled_tooltip = "启用时间到死亡判断，避免在目标即将死亡时使用长冷却技能",
-        ttd_threshold = "TTD阈值(秒)",
-        ttd_threshold_tooltip = "目标剩余存活时间低于此值时不会使用地狱火和怨毒",
+        -- -- 战斗设置
+        -- ttd_settings = "TTD设置",
+        -- ttd_enabled = "启用TTD判断",
+        -- ttd_enabled_tooltip = "启用时间到死亡判断，避免在目标即将死亡时使用长冷却技能",
+        -- ttd_threshold = "TTD阈值(秒)",
+        -- ttd_threshold_tooltip = "目标剩余存活时间低于此值时不会使用地狱火和怨毒",
 
         -- 宠物设置
         pet_settings = "宠物设置",
@@ -101,11 +101,11 @@ local L = {
         tutorial = "Usage Tutorial",
         tutorial_text = "Destruction Warlock rotation with smart pet management, basic defense and interrupt functions.",
 
-        ttd_settings = "TTD Settings",
-        ttd_enabled = "Enable TTD Check",
-        ttd_enabled_tooltip = "Enable time-to-death checking to avoid using long cooldowns on dying targets",
-        ttd_threshold = "TTD Threshold(sec)",
-        ttd_threshold_tooltip = "Don't use Infernal and Malevolence if target TTD is below this value",
+        -- ttd_settings = "TTD Settings",
+        -- ttd_enabled = "Enable TTD Check",
+        -- ttd_enabled_tooltip = "Enable time-to-death checking to avoid using long cooldowns on dying targets",
+        -- ttd_threshold = "TTD Threshold(sec)",
+        -- ttd_threshold_tooltip = "Don't use Infernal and Malevolence if target TTD is below this value",
 
         pet_settings = "Pet Settings",
         selected_pet = "Preferred Pet",
@@ -208,23 +208,23 @@ local function CreateInterface()
         })
         :Spacer()
 
-        :Tab(T("combat"))
-        :Header({ text = T("ttd_settings") })
-        :Checkbox({
-            text = T("ttd_enabled"),
-            key = "RoyWarlock.ttd_enabled",
-            default = true,
-            tooltip = T("ttd_enabled_tooltip")
-        })
-        :Slider({
-            text = T("ttd_threshold"),
-            key = "RoyWarlock.ttd_threshold",
-            min = 5,
-            max = 30,
-            step = 1,
-            default = 15,
-            tooltip = T("ttd_threshold_tooltip")
-        })
+    -- :Tab(T("combat"))
+    -- :Header({ text = T("ttd_settings") })
+    -- :Checkbox({
+    --     text = T("ttd_enabled"),
+    --     key = "RoyWarlock.ttd_enabled",
+    --     default = true,
+    --     tooltip = T("ttd_enabled_tooltip")
+    -- })
+    -- :Slider({
+    --     text = T("ttd_threshold"),
+    --     key = "RoyWarlock.ttd_threshold",
+    --     min = 5,
+    --     max = 30,
+    --     step = 1,
+    --     default = 15,
+    --     tooltip = T("ttd_threshold_tooltip")
+    -- })
         :Spacer()
 
         :Tab(T("defensive"))
