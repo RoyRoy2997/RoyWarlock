@@ -20,7 +20,7 @@ local talents = Aurora.SpellHandler.Spellbooks.warlock["3"].RoyWarlock.talents
 
 -- 【新增】版本信息
 
-local ROTATION_VERSION = "1.2.0"
+local ROTATION_VERSION = "1.6.0"
 
 
 
@@ -80,8 +80,6 @@ local skillCooldowns = {
 
     spell_lock = 0,
 
-
-
 }
 
 
@@ -100,10 +98,6 @@ local prepullDotMode = {
 
 
 
-
-
-
-
 -- 【新增】灵魂石战复相关变量
 
 local soulstoneTargetTime = 0
@@ -112,47 +106,95 @@ local soulstoneTargetGuid = nil
 
 
 
+-- 【新增】枯萎补dot目标跟踪
+
+local witherRefreshTarget = nil
 
 
 
+-- 【新增】宠物召唤延迟跟踪
 
--- 【新增】配置获取函数
+local lastDismountTime = 0
+
+local petSummonDelay = 1.0 -- 1秒延迟
+
+
+
+-- 【修复】配置获取函数 - 确保设置页面选项正确生效
 
 local function GetConfig(key, default)
-    return Aurora.Config:Read("RoyWarlock." .. key) or default
+    local value = Aurora.Config:Read("RoyWarlock." .. key)
+
+    if value == nil then
+        return default
+    end
+
+    return value
 end
 
 
 
--- -- 【新增】TTD团队感知判断（用于地狱火和怨毒）
+-- 【新增】TimeToDieRR函数 - 按照您提供的代码翻译成Aurora框架版本
 
--- local function ShouldUseLongCooldownTeamAware()
+local function TimeToDieRR(unit, percentage)
+    percentage = percentage or 0
 
---     local ttdEnabled = GetConfig("ttd_enabled", true)
-
---     local ttdThreshold = GetConfig("ttd_threshold", 15)
-
-
-
---     if not ttdEnabled then return true end
-
---     if not player.combat then return false end
+    if not unit.exists then return 0 end
 
 
 
---     local avgTTD = Aurora.grouprawttd()
+    -- 检查是否是玩家或训练假人
 
---     print(avgTTD, Aurora.grouphp())
-
---     return avgTTD and avgTTD > ttdThreshold
-
--- end
+    if unit.player or unit.isdummy then return 8888 end
 
 
 
--- 【新增】状态栏检查函数
+    -- 计算目标血量（考虑百分比）
+
+    local health = unit.health - (unit.healthmax / 100 * percentage)
+
+    if health < 1 then return 0 end
+
+
+
+    local CDRS1 = 1.0                     -- 血量修正
+
+    local CDRS2 = 1.0                     -- 攻击力修正
+
+    local prmh = player.healthmax * CDRS1 -- 玩家最大血量 * 修正
+
+
+
+    -- 获取40码内活着的队友数量
+
+    local active_heal_40y = 0
+
+    Aurora.friends:within(40):each(function(friend)
+        if friend.alive and friend.ishealer then
+            active_heal_40y = active_heal_40y + 1
+        end
+    end)
+
+
+
+    local pahn = active_heal_40y * 0.75 -- 团队输出系数
+
+    local loss = prmh * math.max(pahn, CDRS2)
+
+
+
+    -- 计算时间（8秒干死同血量怪）
+
+    return math.min(math.max(health / loss * 8, Aurora.gcd()), 8888)
+end
+
+
+
+-- 【修改】状态栏检查函数 - 修复状态栏控制
 
 local function IsToggleEnabled(toggleName)
+    if not Aurora.Rotation then return true end
+
     if not Aurora.Rotation[toggleName] then return true end
 
     return Aurora.Rotation[toggleName]:GetValue()
@@ -160,9 +202,15 @@ end
 
 
 
--- 【修改】宠物存在判断函数 - 使用UnitManager
+-- 【修改】宠物存在判断函数 - 增加延迟机制
 
 local function HasActivePet()
+    -- 如果玩家刚下坐骑，等待延迟时间
+
+    if GetTime() - lastDismountTime < petSummonDelay then
+        return true -- 在延迟期间认为宠物存在，避免立即召唤
+    end
+
     return pet and pet.exists
 end
 
@@ -192,18 +240,14 @@ local lastInterruptTime = 0
 
 
 
--- 【新增】智能打断系统 - 使用Aurora状态栏控制
+-- 【修改】智能打断系统 - 修复配置读取
 
 local function SmartInterrupts()
     -- 检查打断状态栏是否启用
 
-    if Aurora.Rotation.Interrupt:GetValue() then
+    if not IsToggleEnabled("InterruptToggle") then
         return false
     end
-
-
-
-
 
 
 
@@ -320,7 +364,7 @@ end
 
 
 
--- 【新增】硬控打断系统 - 使用Aurora状态栏控制
+-- 【修改】硬控打断系统 - 增加死亡缠绕选项
 
 local function HardControlInterrupts()
     -- 检查硬控状态栏是否启用
@@ -328,8 +372,6 @@ local function HardControlInterrupts()
     if not IsToggleEnabled("HardControlToggle") then
         return false
     end
-
-
 
 
 
@@ -403,29 +445,47 @@ local function HardControlInterrupts()
 
 
 
-    -- -- 单体硬控：死亡缠绕
+    -- 【新增】单体硬控：死亡缠绕
 
-    -- if #enemiesCastingDangerous >= 1 and not IsSkillOnCooldown("Mortal_Coil") then
+    if GetConfig("use_mortal_coil_interrupt", true) and not IsSkillOnCooldown("Mortal_Coil") then
+        if spells.Mortal_Coil and spells.Mortal_Coil:ready() then
+            -- 优先打断当前目标
 
-    --     local firstDangerousEnemy = enemiesCastingDangerous[1]
+            if target and target.exists and target.casting and target.castinginterruptible then
+                local castId = target.castingspellid
 
-    --     if firstDangerousEnemy and spells.Mortal_Coil and spells.Mortal_Coil:ready() then
+                if interruptList[castId] then
+                    if spells.Mortal_Coil:cast(target) then
+                        lastRandomInterruptTime = currentTime
 
-    --         if spells.Mortal_Coil:cast(firstDangerousEnemy) then
+                        randomInterruptDelay = random(1, 2)
 
-    --             lastRandomInterruptTime = currentTime
+                        SetSkillCooldown("Mortal_Coil", 45)
 
-    --             randomInterruptDelay = random(1, 3)
+                        return true
+                    end
+                end
+            end
 
-    --             SetSkillCooldown("Mortal_Coil", 45)
 
-    --             return true
 
-    --         end
+            -- 打断其他危险目标
 
-    --     end
+            for _, enemy in ipairs(enemiesCastingDangerous) do
+                if spells.Mortal_Coil:castable(enemy) then
+                    if spells.Mortal_Coil:cast(enemy) then
+                        lastRandomInterruptTime = currentTime
 
-    -- end
+                        randomInterruptDelay = random(1, 2)
+
+                        SetSkillCooldown("Mortal_Coil", 45)
+
+                        return true
+                    end
+                end
+            end
+        end
+    end
 
 
 
@@ -434,7 +494,7 @@ end
 
 
 
--- 【新增】基础减伤技能链（仅与血量挂钩）
+-- 【修改】基础减伤技能链（仅与血量挂钩）
 
 local function BasicDefensiveChain()
     if not IsToggleEnabled("DefensiveToggle") then return false end
@@ -479,16 +539,22 @@ local function BasicDefensiveChain()
 
 
 
-
-
     return false
 end
 
 
 
--- 【修改】宠物召唤管理 - 使用正确的宠物判断
+-- 【修复】宠物召唤管理 - 确保配置正确生效
 
 local function PetManagement()
+    -- 检查是否启用自动召唤宠物
+
+    if not GetConfig("auto_summon_pet", true) then
+        return false
+    end
+
+
+
     if HasActivePet() then return false end
 
 
@@ -497,10 +563,12 @@ local function PetManagement()
 
 
 
-    -- 使用邪能统御快速召唤
+    -- 检查是否启用邪能统御
 
-    if spells.Fel_Domination:ready() and spells.Fel_Domination:castable(player) then
-        spells.Fel_Domination:cast(player)
+    if GetConfig("use_fel_domination", true) then
+        if spells.Fel_Domination:ready() and spells.Fel_Domination:castable(player) then
+            spells.Fel_Domination:cast(player)
+        end
     end
 
 
@@ -540,10 +608,20 @@ end
 
 
 
--- 【修改】药水使用管理 - 使用定义好的药水表
+-- 【修改】药水使用管理 - 修复配置读取
 
 local function SmartPotionUse()
     local potionMode = GetConfig("potion_mode", "infernal")
+
+
+
+    -- 如果设置为"none"，则不使用药水
+
+    if potionMode == "none" then
+        return false
+    end
+
+
 
     local healPotionHealth = GetConfig("heal_potion_health", 30)
 
@@ -602,10 +680,18 @@ end
 
 
 
--- 【新增】饰品使用管理
+-- 【修改】饰品使用管理 - 修复配置读取
 
 local function SmartTrinketUse()
     local trinketMode = GetConfig("trinket_mode", "infernal")
+
+
+
+    -- 如果设置为"none"，则不使用饰品
+
+    if trinketMode == "none" then
+        return false
+    end
 
 
 
@@ -685,14 +771,6 @@ local function SoulstoneBattleRes()
 
 
 
-
-
-
-
-
-
-
-
     local currentTime = GetTime()
 
     local mouseoverUnit = Aurora.UnitManager:Get("mouseover")
@@ -758,9 +836,259 @@ end
 
 
 
+-- 【新增】计算当前拥有枯萎debuff的敌人数量
+
+local function CountWitherTargets()
+    local witherCount = 0
+
+    Aurora.enemies:within(40):each(function(enemy)
+        if enemy.exists and enemy.alive and enemy.combat then
+            if enemy.aura(445474) then
+                witherCount = witherCount + 1
+            end
+        end
+    end)
+
+    return witherCount
+end
 
 
 
+-- 【新增】寻找最需要补枯萎dot的目标
+
+local function FindBestWitherTarget()
+    local bestTarget = nil
+
+    local bestScore = -9999
+
+    local aoeThreshold = GetConfig("aoe_threshold", 3)
+
+
+
+    -- 【新增】检查补枯萎开关和最大目标数限制
+
+    if not IsToggleEnabled("WitherToggle") then
+        return nil
+    end
+
+
+
+    local witherMaxTargets = GetConfig("wither_max_targets", 10)
+
+    local currentWitherCount = CountWitherTargets()
+
+
+
+    -- 如果已经达到最大枯萎目标数，停止补枯萎
+
+    if currentWitherCount >= witherMaxTargets then
+        return nil
+    end
+
+
+
+    -- 如果敌人数量达到AOE阈值，优先使用AOE技能，不单独补dot
+
+    local active_enemies = player.enemiesaround(40)
+
+    if active_enemies >= aoeThreshold then
+        return nil
+    end
+
+
+
+    -- 遍历所有敌人，找到最需要补枯萎dot的目标
+
+    Aurora.enemies:within(40):each(function(enemy)
+        if enemy.exists and enemy.alive and enemy.combat then
+            local witherRemains = enemy.auraremains(445474) or 0
+
+            local ttd = TimeToDieRR(enemy, 0)
+
+
+
+            -- 计算分数：枯萎持续时间21秒，剩余时间越少，分数越高
+
+            -- 同时考虑目标存活时间，存活时间太短的目标收益低
+
+            local score = 21 - witherRemains - (ttd >= 14 and 0 or 14 - ttd)
+
+
+
+            if score > bestScore then
+                bestScore = score
+
+                bestTarget = enemy
+            end
+        end
+    end)
+
+
+
+    return bestTarget
+end
+
+
+
+-- 【新增】补枯萎dot功能
+
+local function RefreshWitherDot()
+    if not spells.wither or not spells.wither:ready() then
+        return false
+    end
+
+
+
+    local bestWitherTarget = FindBestWitherTarget()
+
+    if bestWitherTarget and bestWitherTarget.auraremains(445474) < 5 then
+        if spells.wither:castable(bestWitherTarget) then
+            witherRefreshTarget = bestWitherTarget
+
+            return spells.wither:cast(bestWitherTarget)
+        end
+    end
+
+
+
+    return false
+end
+
+
+
+-- 【新增】TTD冷却技能判断
+
+local function ShouldUseCooldown()
+    local ttdEnabled = GetConfig("ttd_enabled", true)
+
+    local ttdThreshold = GetConfig("ttd_threshold", 15)
+
+
+
+    if not ttdEnabled then
+        return true
+    end
+
+
+
+    if not target.exists then
+        return false
+    end
+
+
+
+    local targetTTD = TimeToDieRR(target, 0)
+
+    return targetTTD > ttdThreshold
+end
+
+
+
+-- 【修改】智能暗影灼烧功能 - 增加状态栏控制
+
+local function SmartShadowburn()
+    -- 检查暗影灼烧状态栏是否启用
+
+    if not IsToggleEnabled("ShadowburnToggle") then
+        return false
+    end
+
+
+
+    if not spells.shadowburn or not spells.shadowburn:ready() then
+        return false
+    end
+
+
+
+    local soul_shard = player.soulshards or 0
+
+    local aoeThreshold = GetConfig("aoe_threshold", 3)
+
+    local active_enemies = player.enemiesaround(40)
+
+
+
+    -- 绝对优先条件1：目标生命值 < 20%（斩杀阶段）
+
+    if target.exists and target.alive and target.hp < 20 then
+        if spells.shadowburn:castable(target) then
+            return spells.shadowburn:cast(target)
+        end
+    end
+
+
+
+    -- 绝对优先条件2：灵魂碎片 ≥ 4 个（接近上限）
+
+    if soul_shard >= 4 then
+        if spells.shadowburn:castable(target) then
+            return spells.shadowburn:cast(target)
+        end
+    end
+
+
+
+    -- 寻找血量最低的敌人（斩杀优先级）
+
+    local lowestHealthTarget = nil
+
+    local lowestHealth = 100
+
+
+
+    Aurora.enemies:within(40):each(function(enemy)
+        if enemy.exists and enemy.alive and enemy.combat then
+            -- 优先选择血量低于30%的目标（斩杀阶段）
+
+            if enemy.hp < 30 and enemy.hp < lowestHealth then
+                lowestHealth = enemy.hp
+
+                lowestHealthTarget = enemy
+            end
+
+            -- 如果没有斩杀目标，选择血量最低的目标
+
+            if lowestHealthTarget == nil and enemy.hp < lowestHealth then
+                lowestHealth = enemy.hp
+
+                lowestHealthTarget = enemy
+            end
+        end
+    end)
+
+
+
+    -- 对最低血量目标使用暗影灼烧
+
+    if lowestHealthTarget and spells.shadowburn:castable(lowestHealthTarget) then
+        -- 小怪即将死亡（5秒内）时使用暗影灼烧获取碎片返还
+
+        local ttd = TimeToDieRR(lowestHealthTarget, 0)
+
+        if ttd <= 5 then
+            return spells.shadowburn:cast(lowestHealthTarget)
+        end
+
+
+
+        -- -- 单体战斗中常规使用
+
+        -- if active_enemies <= aoeThreshold then
+
+        --     if spells.shadowburn:count() > 1 then
+
+        --         return spells.shadowburn:cast(lowestHealthTarget)
+
+        --     end
+
+        -- end
+    end
+
+
+
+    return false
+end
 
 
 
@@ -779,11 +1107,15 @@ local function Dps()
 
 
 
-
-
-    -- 获取玩家10码范围内"存活且在战斗中"的敌人数量
+    -- 获取玩家40码范围内"存活且在战斗中"的敌人数量
 
     local active_enemies = player.enemiesaround(40, combatEnemyFilter)
+
+
+
+    -- 【新增】获取AOE阈值配置
+
+    local aoeThreshold = GetConfig("aoe_threshold", 3)
 
 
 
@@ -835,12 +1167,22 @@ local function Dps()
 
     if SmartTrinketUse() then return true end
 
+
+
+    -- 【新增】优先级6：补枯萎dot（在大灾变CD或敌人数量不足时）
+
+    if active_enemies < aoeThreshold or not spells.cataclysm:ready() then
+        if RefreshWitherDot() then
+            return true
+        end
+    end
+
+
+
     -- actions.assisted_combat+=/cataclysm --大灾变
 
-
-
     if spells.cataclysm:isknown() and spells.cataclysm:ready() and spells.cataclysm:castable(player) then
-        if active_enemies >= 2 then
+        if active_enemies >= aoeThreshold then
             spells.cataclysm:smartaoe(target, {
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
@@ -858,6 +1200,8 @@ local function Dps()
             return true
         end
     end
+
+
 
     -- actions.assisted_combat+=/wither,if=!dot.immolate.ticking&!talent.wither --枯萎
 
@@ -883,9 +1227,9 @@ local function Dps()
 
 
 
+    -- 【修改】冷却技能判断 - 加入TTD条件
 
-
-    if Aurora.Rotation.Cooldown:GetValue() then --cooldown
+    if Aurora.Rotation.Cooldown:GetValue() and ShouldUseCooldown() then --cooldown
         -- actions.cooldowns+=/blood_fury（兽人种族技能）
 
         if spells.blood_fury:isknown() and spells.blood_fury:ready() and spells.blood_fury:castable(player) then
@@ -946,6 +1290,8 @@ local function Dps()
             return true
         end
 
+
+
         -- actions.assisted_combat+=/malevolence --怨毒
 
         if spells.malevolence and spells.malevolence:ready() and spells.malevolence:castable(player) then
@@ -966,6 +1312,8 @@ local function Dps()
             return true
         end
     end
+
+
 
     -- actions.assisted_combat+=/incinerate,if=buff.infernal_bolt.up&buff.infernal_bolt.remains<=5 --烧尽
 
@@ -989,10 +1337,12 @@ local function Dps()
         end
     end
 
-    -- actions.assisted_combat+=/rain_of_fire,if=active_enemies>3 --火焰之雨
+
+
+    -- 【修改】火焰之雨 - 使用AOE阈值配置
 
     if spells.rain_of_fire:isknown() and spells.rain_of_fire:ready() and spells.rain_of_fire:castable(player) then
-        if active_enemies > 3 then
+        if active_enemies >= aoeThreshold then
             spells.rain_of_fire:smartaoe(player, {
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
@@ -1011,27 +1361,7 @@ local function Dps()
         end
     end
 
-    -- actions.assisted_combat+=/rain_of_fire,if=active_enemies>3
 
-    if spells.rain_of_fire:isknown() and spells.rain_of_fire:ready() and spells.rain_of_fire:castable(player) then
-        if active_enemies > 3 then
-            spells.rain_of_fire:smartaoe(player, {
-
-                offsetMin = 0,  -- 最小偏移距离（避免贴脸）
-
-                offsetMax = 40, -- 最大偏移距离（限制释放范围）
-
-                filter = function(unit, distance, position)
-                    -- 过滤条件：只统计存活的敌人
-
-                    return unit.enemy and unit.alive
-                end
-
-            })
-
-            return true
-        end
-    end
 
     -- actions.assisted_combat+=/soul_fire,if=buff.decimation.up&soul_shard<=4 --灵魂之火
 
@@ -1043,85 +1373,103 @@ local function Dps()
         end
     end
 
-    -- actions.assisted_combat+=/shadowburn,if=active_enemies<=2 -- 暗影灼烧
 
-    if spells.shadowburn and spells.shadowburn:ready() and spells.shadowburn:castable(target) then
-        if active_enemies <= 2 then
-            spells.shadowburn:cast(target)
 
-            return true
-        end
+    -- 【修改】暗影灼烧 - 使用智能暗影灼烧功能
+
+    if SmartShadowburn() then
+        return true
     end
+
+
 
     -- backdraft 117828 爆燃buff
 
     -- actions.assisted_combat+=/conflagrate,if=buff.backdraft.down&soul_shard>=1.5&active_enemies<=2 --燃烧
 
     if spells.conflagrate and spells.conflagrate:ready() and spells.conflagrate:castable(target) then
-        if not player.aura(117828) and soul_shard >= 1.5 and active_enemies <= 2 then
+        if not player.aura(117828) and soul_shard >= 1.5 and active_enemies <= aoeThreshold then
             spells.conflagrate:cast(target)
 
             return true
         end
     end
 
-    -- actions.assisted_combat+=/ruination,if=active_enemies<=2&soul_shard>=4,cooldown_allow_casting_success=1 -- cooldown_allow_casting_success=1 翻译为 reday 就放 所以不用再额外判断
 
-    if spells.ruination and spells.ruination:ready() and spells.ruination:castable(target) then
-        if soul_shard >= 4 and active_enemies <= 2 then
+
+    -- 【修改】陨灭和混乱箭 - 添加状态栏开关控制
+
+    if IsToggleEnabled("RuinationToggle") then
+        -- actions.assisted_combat+=/ruination,if=active_enemies<=2&soul_shard>=4,cooldown_allow_casting_success=1
+
+        if spells.ruination and spells.ruination:ready() and spells.ruination:castable(target) then
+            if soul_shard >= 4 and active_enemies <= aoeThreshold then
+                spells.chaos_bolt:cast(target)
+
+                return true
+            end
+        end
+
+
+
+        -- actions.assisted_combat+=/ruination,if=active_enemies<=2&soul_shard>=2&buff.ritual_of_ruin.up,cooldown_allow_casting_success=1
+
+        if spells.ruination and spells.ruination:ready() and spells.ruination:castable(target) then
+            if soul_shard >= 4 and active_enemies <= aoeThreshold and player.aura(387157) then
+                spells.chaos_bolt:cast(target)
+
+                return true
+            end
+        end
+
+
+
+        -- actions.assisted_combat+=/ruination,if=active_enemies<=2
+
+        if spells.ruination and spells.ruination:ready() and spells.ruination:castable(target) then
             spells.chaos_bolt:cast(target)
 
             return true
         end
     end
+
+
 
     -- actions.assisted_combat+=/chaos_bolt,if=active_enemies<=2&soul_shard>=4,cooldown_allow_casting_success=1
 
     if spells.chaos_bolt and spells.chaos_bolt:ready() and spells.chaos_bolt:castable(target) then
-        if soul_shard >= 4 and active_enemies <= 2 then
+        if soul_shard >= 4 and active_enemies <= aoeThreshold then
             spells.chaos_bolt:cast(target)
 
             return true
         end
     end
 
-    -- actions.assisted_combat+=/ruination,if=active_enemies<=2&soul_shard>=2&buff.ritual_of_ruin.up,cooldown_allow_casting_success=1
 
-    if spells.ruination and spells.ruination:ready() and spells.ruination:castable(target) then
-        if soul_shard >= 4 and active_enemies <= 2 and player.aura(387157) then
-            spells.chaos_bolt:cast(target)
-
-            return true
-        end
-    end
 
     -- actions.assisted_combat+=/chaos_bolt,if=active_enemies<=2&soul_shard>=2&buff.ritual_of_ruin.up,cooldown_allow_casting_success=1
 
     if spells.chaos_bolt and spells.chaos_bolt:ready() and spells.chaos_bolt:castable(target) then
-        if soul_shard >= 4 and active_enemies <= 2 and player.aura(387157) then
+        if soul_shard >= 4 and active_enemies <= aoeThreshold and player.aura(387157) then
             spells.chaos_bolt:cast(target)
 
             return true
         end
     end
 
-    -- actions.assisted_combat+=/ruination,if=active_enemies<=2
 
-    if spells.ruination and spells.ruination:ready() and spells.ruination:castable(target) then
-        spells.chaos_bolt:cast(target)
-
-        return true
-    end
 
     -- actions.assisted_combat+=/chaos_bolt,if=active_enemies<=2
 
     if spells.chaos_bolt and spells.chaos_bolt:ready() and spells.chaos_bolt:castable(target) then
-        if active_enemies <= 2 then
+        if active_enemies <= aoeThreshold then
             spells.chaos_bolt:cast(target)
 
             return true
         end
     end
+
+
 
     -- actions.assisted_combat+=/dimensional_rift
 
@@ -1130,8 +1478,6 @@ local function Dps()
 
         return true
     end
-
-
 
 
 
@@ -1145,6 +1491,8 @@ local function Dps()
         end
     end
 
+
+
     -- actions.assisted_combat+=/incinerate,if=buff.backdraft.stack>=2
 
     if spells.incinerate and spells.incinerate:ready() and spells.incinerate:castable(target) then
@@ -1154,6 +1502,8 @@ local function Dps()
             return true
         end
     end
+
+
 
     -- actions.assisted_combat+=/conflagrate,if=charges>=2
 
@@ -1165,6 +1515,8 @@ local function Dps()
         end
     end
 
+
+
     -- actions.assisted_combat+=/infernal_bolt,cooldown_allow_casting_success=1
 
     if spells.infernal_bolt and spells.infernal_bolt:ready() and spells.infernal_bolt:castable(target) then
@@ -1172,6 +1524,8 @@ local function Dps()
 
         return true
     end
+
+
 
     -- actions.assisted_combat+=/incinerate,cooldown_allow_casting_success=1
 
@@ -1181,6 +1535,8 @@ local function Dps()
         return true
     end
 
+
+
     -- actions.assisted_combat+=/infernal_bolt
 
     if spells.infernal_bolt and spells.infernal_bolt:ready() and spells.infernal_bolt:castable(target) then
@@ -1188,6 +1544,8 @@ local function Dps()
 
         return true
     end
+
+
 
     -- actions.assisted_combat+=/incinerate
 
@@ -1225,9 +1583,19 @@ end
 -- 注册循环
 
 Aurora:RegisterRoutine(function()
+    -- 【修改】检测下坐骑状态
+
+    if player.mounted then
+        lastDismountTime = GetTime() -- 更新下坐骑时间
+
+        return
+    end
+
+
+
     -- 跳过死亡、进食、饮水状态
 
-    if player.dead or player.aura("Food") or player.aura("Drink") or player.invehicle then
+    if player.dead or player.aura("Food") or player.aura("Drink") or player.mounted then
         return
     end
 
@@ -1252,15 +1620,13 @@ local function CheckRotationVersion()
 
         print("版本: " .. ROTATION_VERSION)
 
-        print("• 修复宠物判断和打断问题")
+        print("• 修复配置读取问题")
 
-        print("• 添加AOE硬控打断")
+        print("• 增加死亡缠绕打断选项")
 
-        print("• 添加灵魂石战复功能")
+        print("• 增加暗影灼烧状态栏控制")
 
-        print("• 添加爆燃冲刺按键控制")
-
-        print("• 添加读条暂停功能")
+        print("• 优化界面设置")
 
         print("=============================")
 

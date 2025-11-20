@@ -4,15 +4,11 @@ local gui = Aurora.GuiBuilder:New()
 -- 本地化文本
 local L = {
     zh = {
-        category = "Roy_Warlock设置",
-        general = "常用设置",
-        -- combat = "战斗设置",
+        category = "毁灭术设置",
+        general = "通用设置",
+        combat = "战斗设置",
+        features = "功能设置",
         defensive = "减伤设置",
-        interrupt = "打断设置",
-        pet = "宠物设置",
-        potion = "药水设置",
-        trinket = "饰品设置",
-        advanced = "高级设置",
 
         -- 通用设置
         language = "界面语言",
@@ -20,15 +16,27 @@ local L = {
         tutorial = "使用教程",
         tutorial_text = "毁灭术专精循环，包含智能宠物管理、基础减伤和打断功能。",
 
-        -- -- 战斗设置
-        -- ttd_settings = "TTD设置",
-        -- ttd_enabled = "启用TTD判断",
-        -- ttd_enabled_tooltip = "启用时间到死亡判断，避免在目标即将死亡时使用长冷却技能",
-        -- ttd_threshold = "TTD阈值(秒)",
-        -- ttd_threshold_tooltip = "目标剩余存活时间低于此值时不会使用地狱火和怨毒",
+        -- 战斗设置
+        aoe_settings = "AOE设置",
+        aoe_threshold = "AOE阈值",
+        aoe_threshold_tooltip = "敌人数量达到此值时释放AOE技能（火焰之雨、大灾变）",
+
+        ttd_settings = "TTD设置",
+        ttd_enabled = "启用TTD判断",
+        ttd_enabled_tooltip = "启用时间到死亡判断，控制冷却技能释放",
+        ttd_threshold = "TTD阈值(秒)",
+        ttd_threshold_tooltip = "目标剩余存活时间高于此值时才会释放冷却技能",
+
+        wither_settings = "枯萎设置",
+        wither_max_targets = "补枯萎最大目标数",
+        wither_max_targets_tooltip = "战斗中拥有枯萎debuff的敌人超过此数量时停止补枯萎",
 
         -- 宠物设置
         pet_settings = "宠物设置",
+        auto_summon_pet = "自动召唤宠物",
+        auto_summon_pet_tooltip = "启用自动召唤宠物功能",
+        use_fel_domination = "使用邪能统御",
+        use_fel_domination_tooltip = "启用邪能统御快速召唤宠物",
         selected_pet = "首选宠物",
         selected_pet_tooltip = "选择自动召唤的宠物类型",
         pet_options = {
@@ -44,17 +52,18 @@ local L = {
         dark_pact_health_tooltip = "血量低于此值时使用暗影契约",
         unending_resolve_health = "不灭决心血量(%)",
         unending_resolve_health_tooltip = "血量低于此值时使用不灭决心",
-        mortal_coil_health = "死亡缠绕血量（%)",
+        mortal_coil_health = "死亡缠绕血量(%)",
         mortal_coil_health_tooltip = "血量低于此值时使用死亡缠绕",
 
-        -- 打断设置
+        -- 功能设置
         interrupt_settings = "打断设置",
         interrupt_enabled = "启用自动打断",
         interrupt_enabled_tooltip = "启用自动打断敌方施法",
         hard_control_enabled = "启用硬控打断",
         hard_control_enabled_tooltip = "启用暗影之怒进行AOE硬控打断",
+        use_mortal_coil_interrupt = "使用死亡缠绕打断",
+        use_mortal_coil_interrupt_tooltip = "在硬控打断中使用死亡缠绕",
 
-        -- 药水设置
         potion_settings = "药水设置",
         potion_mode = "爆发药水使用模式",
         potion_mode_tooltip = "选择爆发药水的使用时机",
@@ -66,7 +75,6 @@ local L = {
         heal_potion_health = "治疗药水血量(%)",
         heal_potion_health_tooltip = "血量低于此值时使用治疗药水",
 
-        -- 饰品设置
         trinket_settings = "饰品设置",
         trinket_mode = "饰品使用模式",
         trinket_mode_tooltip = "选择饰品的使用时机",
@@ -74,40 +82,41 @@ local L = {
             infernal = "召唤地狱火时使用",
             cd = "卡CD使用",
             none = "不使用"
-        },
-
-
-
-        -- 高级设置
-        advanced_settings = "高级设置",
-        pause_for_casting = "读条时暂停循环",
-        pause_for_casting_tooltip = "施法或引导时暂停其他技能释放"
+        }
     },
 
     en = {
         category = "Destruction Warlock Settings",
         general = "General Settings",
         combat = "Combat Settings",
+        features = "Feature Settings",
         defensive = "Defensive Settings",
-        interrupt = "Interrupt Settings",
-        pet = "Pet Settings",
-        potion = "Potion Settings",
-        trinket = "Trinket Settings",
-        movement = "Movement Settings",
-        advanced = "Advanced Settings",
 
         language = "Interface Language",
         language_tooltip = "Select interface display language",
         tutorial = "Usage Tutorial",
         tutorial_text = "Destruction Warlock rotation with smart pet management, basic defense and interrupt functions.",
 
-        -- ttd_settings = "TTD Settings",
-        -- ttd_enabled = "Enable TTD Check",
-        -- ttd_enabled_tooltip = "Enable time-to-death checking to avoid using long cooldowns on dying targets",
-        -- ttd_threshold = "TTD Threshold(sec)",
-        -- ttd_threshold_tooltip = "Don't use Infernal and Malevolence if target TTD is below this value",
+        aoe_settings = "AOE Settings",
+        aoe_threshold = "AOE Threshold",
+        aoe_threshold_tooltip = "Number of enemies required to cast AOE skills (Rain of Fire, Cataclysm)",
+
+        ttd_settings = "TTD Settings",
+        ttd_enabled = "Enable TTD Check",
+        ttd_enabled_tooltip = "Enable time-to-death checking to control cooldown skill usage",
+        ttd_threshold = "TTD Threshold(sec)",
+        ttd_threshold_tooltip = "Only use cooldown skills when target TTD is above this value",
+
+        wither_settings = "Wither Settings",
+        wither_max_targets = "Max Wither Targets",
+        wither_max_targets_tooltip =
+        "Stop refreshing Wither when number of enemies with Wither debuff exceeds this value",
 
         pet_settings = "Pet Settings",
+        auto_summon_pet = "Auto Summon Pet",
+        auto_summon_pet_tooltip = "Enable automatic pet summoning",
+        use_fel_domination = "Use Fel Domination",
+        use_fel_domination_tooltip = "Enable Fel Domination for quick pet summoning",
         selected_pet = "Preferred Pet",
         selected_pet_tooltip = "Select pet type for automatic summoning",
         pet_options = {
@@ -122,14 +131,16 @@ local L = {
         dark_pact_health_tooltip = "Use Dark Pact when health below this value",
         unending_resolve_health = "Unending Resolve Health(%)",
         unending_resolve_health_tooltip = "Use Unending Resolve when health below this value",
-        mortal_coil_health = "mortal_coil Health(%)",
-        mortal_coil_health_tooltip = "Use mortal_coil when health below this value",
+        mortal_coil_health = "Mortal Coil Health(%)",
+        mortal_coil_health_tooltip = "Use Mortal Coil when health below this value",
 
         interrupt_settings = "Interrupt Settings",
         interrupt_enabled = "Enable Auto Interrupt",
         interrupt_enabled_tooltip = "Enable automatic interruption of enemy casts",
         hard_control_enabled = "Enable Hard Control Interrupt",
         hard_control_enabled_tooltip = "Enable Shadowfury for AOE hard control interrupts",
+        use_mortal_coil_interrupt = "Use Mortal Coil Interrupt",
+        use_mortal_coil_interrupt_tooltip = "Use Mortal Coil in hard control interrupts",
 
         potion_settings = "Potion Settings",
         potion_mode = "Burst Potion Mode",
@@ -149,12 +160,7 @@ local L = {
             infernal = "Use with Summon Infernal",
             cd = "Use on Cooldown",
             none = "Don't Use"
-        },
-
-
-        advanced_settings = "Advanced Settings",
-        pause_for_casting = "Pause Rotation While Casting",
-        pause_for_casting_tooltip = "Pause other skill casts while casting or channeling"
+        }
     }
 }
 
@@ -192,8 +198,58 @@ local function CreateInterface()
         })
         :Spacer()
 
-        :Tab(T("pet"))
+        :Tab(T("combat"))
+        :Header({ text = T("aoe_settings") })
+        :Slider({
+            text = T("aoe_threshold"),
+            key = "RoyWarlock.aoe_threshold",
+            min = 1,
+            max = 10,
+            step = 1,
+            default = 3,
+            tooltip = T("aoe_threshold_tooltip")
+        })
+        :Header({ text = T("ttd_settings") })
+        :Checkbox({
+            text = T("ttd_enabled"),
+            key = "RoyWarlock.ttd_enabled",
+            default = true,
+            tooltip = T("ttd_enabled_tooltip")
+        })
+        :Slider({
+            text = T("ttd_threshold"),
+            key = "RoyWarlock.ttd_threshold",
+            min = 0,
+            max = 30,
+            step = 1,
+            default = 15,
+            tooltip = T("ttd_threshold_tooltip")
+        })
+
+        :Header({ text = T("wither_settings") })
+        :Slider({
+            text = T("wither_max_targets"),
+            key = "RoyWarlock.wither_max_targets",
+            min = 1,
+            max = 20,
+            step = 1,
+            default = 10,
+            tooltip = T("wither_max_targets_tooltip")
+        })
+        :Tab(T("defensive"))
         :Header({ text = T("pet_settings") })
+        :Checkbox({
+            text = T("auto_summon_pet"),
+            key = "RoyWarlock.auto_summon_pet",
+            default = true,
+            tooltip = T("auto_summon_pet_tooltip")
+        })
+        :Checkbox({
+            text = T("use_fel_domination"),
+            key = "RoyWarlock.use_fel_domination",
+            default = true,
+            tooltip = T("use_fel_domination_tooltip")
+        })
         :Dropdown({
             text = T("selected_pet"),
             key = "RoyWarlock.selected_pet",
@@ -201,33 +257,12 @@ local function CreateInterface()
                 { text = T("小鬼"), value = "imp" },
                 { text = T("虚空行者"), value = "voidwalker" },
                 { text = T("魅魔"), value = "sayaad" },
-                { text = T("狗"), value = "felhunter" }
+                { text = T("地狱猎犬"), value = "felhunter" }
             },
             default = "felhunter",
             tooltip = T("selected_pet_tooltip")
         })
-        :Spacer()
 
-    -- :Tab(T("combat"))
-    -- :Header({ text = T("ttd_settings") })
-    -- :Checkbox({
-    --     text = T("ttd_enabled"),
-    --     key = "RoyWarlock.ttd_enabled",
-    --     default = true,
-    --     tooltip = T("ttd_enabled_tooltip")
-    -- })
-    -- :Slider({
-    --     text = T("ttd_threshold"),
-    --     key = "RoyWarlock.ttd_threshold",
-    --     min = 5,
-    --     max = 30,
-    --     step = 1,
-    --     default = 15,
-    --     tooltip = T("ttd_threshold_tooltip")
-    -- })
-        :Spacer()
-
-        :Tab(T("defensive"))
         :Header({ text = T("health_threshold") })
         :Slider({
             text = T("dark_pact_health"),
@@ -247,7 +282,6 @@ local function CreateInterface()
             default = 20,
             tooltip = T("unending_resolve_health_tooltip")
         })
-
         :Slider({
             text = T("mortal_coil_health"),
             key = "RoyWarlock.mortal_coil_health",
@@ -257,9 +291,8 @@ local function CreateInterface()
             default = 60,
             tooltip = T("mortal_coil_health_tooltip")
         })
-        :Spacer()
 
-        :Tab(T("interrupt"))
+        :Tab(T("features"))
         :Header({ text = T("interrupt_settings") })
         :Checkbox({
             text = T("interrupt_enabled"),
@@ -273,9 +306,14 @@ local function CreateInterface()
             default = true,
             tooltip = T("hard_control_enabled_tooltip")
         })
-        :Spacer()
+        :Checkbox({
+            text = T("use_mortal_coil_interrupt"),
+            key = "RoyWarlock.use_mortal_coil_interrupt",
+            default = true,
+            tooltip = T("use_mortal_coil_interrupt_tooltip")
+        })
 
-        :Tab(T("potion"))
+
         :Header({ text = T("potion_settings") })
         :Dropdown({
             text = T("potion_mode"),
@@ -297,9 +335,7 @@ local function CreateInterface()
             default = 30,
             tooltip = T("heal_potion_health_tooltip")
         })
-        :Spacer()
 
-        :Tab(T("trinket"))
         :Header({ text = T("trinket_settings") })
         :Dropdown({
             text = T("trinket_mode"),
@@ -312,22 +348,18 @@ local function CreateInterface()
             default = "infernal",
             tooltip = T("trinket_mode_tooltip")
         })
-        :Spacer()
-
-
-
-        :Tab(T("advanced"))
-        :Header({ text = T("advanced_settings") })
-        :Checkbox({
-            text = T("pause_for_casting"),
-            key = "RoyWarlock.pause_for_casting",
-            default = true,
-            tooltip = T("pause_for_casting_tooltip")
-        })
 end
 
 -- 注册状态栏
 local function RegisterStatusToggles()
+    Aurora.Rotation.InterruptToggle = Aurora:AddGlobalToggle({
+        label = "打断",
+        var = "RoyWarlock_Interrupt",
+        icon = 119910, -- 法术锁定图标
+        tooltip = "启用自动打断",
+        default = true
+    })
+
     Aurora.Rotation.HardControlToggle = Aurora:AddGlobalToggle({
         label = "硬控",
         var = "RoyWarlock_HardControl",
@@ -344,6 +376,29 @@ local function RegisterStatusToggles()
         default = true
     })
 
+    Aurora.Rotation.RuinationToggle = Aurora:AddGlobalToggle({
+        label = "陨灭",
+        var = "RoyWarlock_Ruination",
+        icon = 434635, -- 陨灭图标
+        tooltip = "启用陨灭技能释放",
+        default = true
+    })
+
+    Aurora.Rotation.WitherToggle = Aurora:AddGlobalToggle({
+        label = "补枯萎",
+        var = "RoyWarlock_Wither",
+        icon = 445468, -- 枯萎图标
+        tooltip = "启用自动补枯萎dot",
+        default = true
+    })
+
+    Aurora.Rotation.ShadowburnToggle = Aurora:AddGlobalToggle({
+        label = "暗影灼烧",
+        var = "RoyWarlock_Shadowburn",
+        icon = 17877, -- 暗影灼烧图标
+        tooltip = "启用暗影灼烧技能",
+        default = true
+    })
 
     print("RoyWarlock 状态栏已加载!")
 end
