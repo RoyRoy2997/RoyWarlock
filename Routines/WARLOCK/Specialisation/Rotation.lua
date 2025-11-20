@@ -1072,17 +1072,13 @@ local function SmartShadowburn()
 
 
 
-        -- -- 单体战斗中常规使用
+        -- 单体战斗中常规使用
 
-        -- if active_enemies <= aoeThreshold then
-
-        --     if spells.shadowburn:count() > 1 then
-
-        --         return spells.shadowburn:cast(lowestHealthTarget)
-
-        --     end
-
-        -- end
+        if active_enemies <= aoeThreshold then
+            if spells.shadowburn:charges() > 1 then
+                return spells.shadowburn:cast(lowestHealthTarget)
+            end
+        end
     end
 
 
