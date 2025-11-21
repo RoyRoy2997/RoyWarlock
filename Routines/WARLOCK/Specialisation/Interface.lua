@@ -4,11 +4,12 @@ local gui = Aurora.GuiBuilder:New()
 -- 本地化文本
 local L = {
     zh = {
-        category = "毁灭术设置",
+        category = "Roy_Warlock设置",
         general = "通用设置",
         combat = "战斗设置",
         features = "功能设置",
         defensive = "减伤设置",
+        special = "特殊功能",
 
         -- 通用设置
         language = "界面语言",
@@ -31,7 +32,7 @@ local L = {
         wither_max_targets = "补枯萎最大目标数",
         wither_max_targets_tooltip = "战斗中拥有枯萎debuff的敌人超过此数量时停止补枯萎",
 
-        -- 宠物设置
+        -- 功能设置
         pet_settings = "宠物设置",
         auto_summon_pet = "自动召唤宠物",
         auto_summon_pet_tooltip = "启用自动召唤宠物功能",
@@ -46,6 +47,23 @@ local L = {
             felhunter = "地狱猎犬"
         },
 
+        interrupt_settings = "打断设置",
+        interrupt_enabled = "启用自动打断",
+        interrupt_enabled_tooltip = "启用自动打断敌方施法",
+        hard_control_enabled = "启用硬控打断",
+        hard_control_enabled_tooltip = "启用暗影之怒进行AOE硬控打断",
+        use_mortal_coil_interrupt = "使用死亡缠绕打断",
+        use_mortal_coil_interrupt_tooltip = "在硬控打断中使用死亡缠绕",
+
+        trinket_settings = "饰品设置",
+        trinket_mode = "饰品使用模式",
+        trinket_mode_tooltip = "选择饰品的使用时机",
+        trinket_modes = {
+            infernal = "召唤地狱火时使用",
+            cd = "卡CD使用",
+            none = "不使用"
+        },
+
         -- 减伤设置
         health_threshold = "减伤技能设置",
         dark_pact_health = "暗影契约血量(%)",
@@ -54,15 +72,6 @@ local L = {
         unending_resolve_health_tooltip = "血量低于此值时使用不灭决心",
         mortal_coil_health = "死亡缠绕血量(%)",
         mortal_coil_health_tooltip = "血量低于此值时使用死亡缠绕",
-
-        -- 功能设置
-        interrupt_settings = "打断设置",
-        interrupt_enabled = "启用自动打断",
-        interrupt_enabled_tooltip = "启用自动打断敌方施法",
-        hard_control_enabled = "启用硬控打断",
-        hard_control_enabled_tooltip = "启用暗影之怒进行AOE硬控打断",
-        use_mortal_coil_interrupt = "使用死亡缠绕打断",
-        use_mortal_coil_interrupt_tooltip = "在硬控打断中使用死亡缠绕",
 
         potion_settings = "药水设置",
         potion_mode = "爆发药水使用模式",
@@ -75,22 +84,31 @@ local L = {
         heal_potion_health = "治疗药水血量(%)",
         heal_potion_health_tooltip = "血量低于此值时使用治疗药水",
 
-        trinket_settings = "饰品设置",
-        trinket_mode = "饰品使用模式",
-        trinket_mode_tooltip = "选择饰品的使用时机",
-        trinket_modes = {
-            infernal = "召唤地狱火时使用",
-            cd = "卡CD使用",
-            none = "不使用"
-        }
+        -- 特殊功能
+        burning_rush_settings = "爆燃冲刺设置",
+        burning_rush_enabled = "启用爆燃冲刺",
+        burning_rush_enabled_tooltip = "自动管理爆燃冲刺的开启和关闭",
+        burning_rush_health = "火跑最低血量(%)",
+        burning_rush_health_tooltip = "血量低于此值时自动关闭火跑",
+        burning_rush_move_time = "移动时间阈值(秒)",
+        burning_rush_move_time_tooltip = "持续移动超过此时间自动开启火跑",
+        burning_rush_stand_time = "站立时间阈值(秒)",
+        burning_rush_stand_time_tooltip = "站立超过此时间自动关闭火跑",
+
+        gathering_settings = "聚拢检测设置",
+        gathering_check_enabled = "启用聚拢检测",
+        gathering_check_enabled_tooltip = "启用聚拢检测，控制AOE技能释放时机",
+        gathering_percentage = "聚拢百分比(%)",
+        gathering_percentage_tooltip = "坦克附近敌人占比达到此百分比才释放AOE技能"
     },
 
     en = {
-        category = "Destruction Warlock Settings",
+        category = "Roy_Warlock Settings",
         general = "General Settings",
         combat = "Combat Settings",
         features = "Feature Settings",
         defensive = "Defensive Settings",
+        special = "Special Functions",
 
         language = "Interface Language",
         language_tooltip = "Select interface display language",
@@ -126,14 +144,6 @@ local L = {
             felhunter = "Felhunter"
         },
 
-        health_threshold = "Defensive Skill Settings",
-        dark_pact_health = "Dark Pact Health(%)",
-        dark_pact_health_tooltip = "Use Dark Pact when health below this value",
-        unending_resolve_health = "Unending Resolve Health(%)",
-        unending_resolve_health_tooltip = "Use Unending Resolve when health below this value",
-        mortal_coil_health = "Mortal Coil Health(%)",
-        mortal_coil_health_tooltip = "Use Mortal Coil when health below this value",
-
         interrupt_settings = "Interrupt Settings",
         interrupt_enabled = "Enable Auto Interrupt",
         interrupt_enabled_tooltip = "Enable automatic interruption of enemy casts",
@@ -141,6 +151,23 @@ local L = {
         hard_control_enabled_tooltip = "Enable Shadowfury for AOE hard control interrupts",
         use_mortal_coil_interrupt = "Use Mortal Coil Interrupt",
         use_mortal_coil_interrupt_tooltip = "Use Mortal Coil in hard control interrupts",
+
+        trinket_settings = "Trinket Settings",
+        trinket_mode = "Trinket Usage Mode",
+        trinket_mode_tooltip = "Select when to use trinkets",
+        trinket_modes = {
+            infernal = "Use with Summon Infernal",
+            cd = "Use on Cooldown",
+            none = "Don't Use"
+        },
+
+        health_threshold = "Defensive Skill Settings",
+        dark_pact_health = "Dark Pact Health(%)",
+        dark_pact_health_tooltip = "Use Dark Pact when health below this value",
+        unending_resolve_health = "Unending Resolve Health(%)",
+        unending_resolve_health_tooltip = "Use Unending Resolve when health below this value",
+        mortal_coil_health = "Mortal Coil Health(%)",
+        mortal_coil_health_tooltip = "Use Mortal Coil when health below this value",
 
         potion_settings = "Potion Settings",
         potion_mode = "Burst Potion Mode",
@@ -153,14 +180,21 @@ local L = {
         heal_potion_health = "Heal Potion Health(%)",
         heal_potion_health_tooltip = "Use heal potion when health below this value",
 
-        trinket_settings = "Trinket Settings",
-        trinket_mode = "Trinket Usage Mode",
-        trinket_mode_tooltip = "Select when to use trinkets",
-        trinket_modes = {
-            infernal = "Use with Summon Infernal",
-            cd = "Use on Cooldown",
-            none = "Don't Use"
-        }
+        burning_rush_settings = "Burning Rush Settings",
+        burning_rush_enabled = "Enable Burning Rush",
+        burning_rush_enabled_tooltip = "Automatically manage Burning Rush activation and deactivation",
+        burning_rush_health = "Burning Rush Min Health(%)",
+        burning_rush_health_tooltip = "Automatically disable Burning Rush when health below this value",
+        burning_rush_move_time = "Movement Time Threshold(sec)",
+        burning_rush_move_time_tooltip = "Automatically enable Burning Rush after moving for this duration",
+        burning_rush_stand_time = "Standing Time Threshold(sec)",
+        burning_rush_stand_time_tooltip = "Automatically disable Burning Rush after standing for this duration",
+
+        gathering_settings = "Gathering Detection Settings",
+        gathering_check_enabled = "Enable Gathering Detection",
+        gathering_check_enabled_tooltip = "Enable gathering detection to control AOE skill usage",
+        gathering_percentage = "Gathering Percentage(%)",
+        gathering_percentage_tooltip = "Only use AOE skills when enemy percentage near tank reaches this value"
     }
 }
 
@@ -188,7 +222,7 @@ local function CreateInterface()
                 Aurora.alert("Language changed to " .. value .. ". Please /reload to apply changes.", 116858)
             end
         })
-        :Spacer()
+
 
         :Header({ text = T("tutorial") })
         :Text({
@@ -196,7 +230,7 @@ local function CreateInterface()
             color = "normal",
             size = 10
         })
-        :Spacer()
+
 
         :Tab(T("combat"))
         :Header({ text = T("aoe_settings") })
@@ -209,6 +243,8 @@ local function CreateInterface()
             default = 3,
             tooltip = T("aoe_threshold_tooltip")
         })
+
+
         :Header({ text = T("ttd_settings") })
         :Checkbox({
             text = T("ttd_enabled"),
@@ -226,6 +262,7 @@ local function CreateInterface()
             tooltip = T("ttd_threshold_tooltip")
         })
 
+
         :Header({ text = T("wither_settings") })
         :Slider({
             text = T("wither_max_targets"),
@@ -236,7 +273,9 @@ local function CreateInterface()
             default = 10,
             tooltip = T("wither_max_targets_tooltip")
         })
-        :Tab(T("defensive"))
+
+
+        :Tab(T("features"))
         :Header({ text = T("pet_settings") })
         :Checkbox({
             text = T("auto_summon_pet"),
@@ -263,6 +302,43 @@ local function CreateInterface()
             tooltip = T("selected_pet_tooltip")
         })
 
+
+        :Header({ text = T("interrupt_settings") })
+        :Checkbox({
+            text = T("interrupt_enabled"),
+            key = "RoyWarlock.interrupt_enabled",
+            default = true,
+            tooltip = T("interrupt_enabled_tooltip")
+        })
+        :Checkbox({
+            text = T("hard_control_enabled"),
+            key = "RoyWarlock.hard_control_enabled",
+            default = true,
+            tooltip = T("hard_control_enabled_tooltip")
+        })
+        :Checkbox({
+            text = T("use_mortal_coil_interrupt"),
+            key = "RoyWarlock.use_mortal_coil_interrupt",
+            default = true,
+            tooltip = T("use_mortal_coil_interrupt_tooltip")
+        })
+
+
+        :Header({ text = T("trinket_settings") })
+        :Dropdown({
+            text = T("trinket_mode"),
+            key = "RoyWarlock.trinket_mode",
+            options = {
+                { text = T("联动地狱火"), value = "infernal" },
+                { text = T("卡CD使用"), value = "cd" },
+                { text = T("不使用"), value = "none" }
+            },
+            default = "infernal",
+            tooltip = T("trinket_mode_tooltip")
+        })
+
+
+        :Tab(T("defensive"))
         :Header({ text = T("health_threshold") })
         :Slider({
             text = T("dark_pact_health"),
@@ -292,27 +368,6 @@ local function CreateInterface()
             tooltip = T("mortal_coil_health_tooltip")
         })
 
-        :Tab(T("features"))
-        :Header({ text = T("interrupt_settings") })
-        :Checkbox({
-            text = T("interrupt_enabled"),
-            key = "RoyWarlock.interrupt_enabled",
-            default = true,
-            tooltip = T("interrupt_enabled_tooltip")
-        })
-        :Checkbox({
-            text = T("hard_control_enabled"),
-            key = "RoyWarlock.hard_control_enabled",
-            default = true,
-            tooltip = T("hard_control_enabled_tooltip")
-        })
-        :Checkbox({
-            text = T("use_mortal_coil_interrupt"),
-            key = "RoyWarlock.use_mortal_coil_interrupt",
-            default = true,
-            tooltip = T("use_mortal_coil_interrupt_tooltip")
-        })
-
 
         :Header({ text = T("potion_settings") })
         :Dropdown({
@@ -336,17 +391,64 @@ local function CreateInterface()
             tooltip = T("heal_potion_health_tooltip")
         })
 
-        :Header({ text = T("trinket_settings") })
-        :Dropdown({
-            text = T("trinket_mode"),
-            key = "RoyWarlock.trinket_mode",
-            options = {
-                { text = T("联动地狱火"), value = "infernal" },
-                { text = T("卡CD使用"), value = "cd" },
-                { text = T("不使用"), value = "none" }
-            },
-            default = "infernal",
-            tooltip = T("trinket_mode_tooltip")
+
+    -- 在特殊功能页面添加脱战启用选项
+        :Tab(T("special"))
+        :Header({ text = T("burning_rush_settings") })
+        :Checkbox({
+            text = T("burning_rush_enabled"),
+            key = "RoyWarlock.burning_rush_enabled",
+            default = false,
+            tooltip = T("burning_rush_enabled_tooltip")
+        })
+        :Checkbox({
+            text = "脱战启用爆燃冲刺",
+            key = "RoyWarlock.burning_rush_ooc",
+            default = false,
+            tooltip = "在非战斗状态也启用爆燃冲刺自动管理"
+        })
+        :Slider({
+            text = T("burning_rush_health"),
+            key = "RoyWarlock.burning_rush_health",
+            min = 10,
+            max = 100,
+            step = 5,
+            default = 50,
+            tooltip = T("burning_rush_health_tooltip")
+        })
+        :Slider({
+            text = T("burning_rush_move_time"),
+            key = "RoyWarlock.burning_rush_move_time",
+            min = 1,
+            max = 10,
+            step = 0.5,
+            default = 1.5,
+            tooltip = T("burning_rush_move_time_tooltip")
+        })
+        :Slider({
+            text = T("burning_rush_stand_time"),
+            key = "RoyWarlock.burning_rush_stand_time",
+            min = 1,
+            max = 10,
+            step = 0.5,
+            default = 1.5,
+            tooltip = T("burning_rush_stand_time_tooltip")
+        })
+        :Header({ text = T("gathering_settings") })
+        :Checkbox({
+            text = T("gathering_check_enabled"),
+            key = "RoyWarlock.gathering_check_enabled",
+            default = false,
+            tooltip = T("gathering_check_enabled_tooltip")
+        })
+        :Slider({
+            text = T("gathering_percentage"),
+            key = "RoyWarlock.gathering_percentage",
+            min = 10,
+            max = 100,
+            step = 5,
+            default = 75,
+            tooltip = T("gathering_percentage_tooltip")
         })
 end
 
@@ -398,6 +500,14 @@ local function RegisterStatusToggles()
         icon = 17877, -- 暗影灼烧图标
         tooltip = "启用暗影灼烧技能",
         default = true
+    })
+
+    Aurora.Rotation.PrepullToggle = Aurora:AddGlobalToggle({
+        label = "拉怪补DOT",
+        var = "RoyWarlock_Prepull",
+        icon = 445468, -- 枯萎图标
+        tooltip = "启用拉怪补DOT模式，战斗10秒后自动关闭",
+        default = false
     })
 
     print("RoyWarlock 状态栏已加载!")

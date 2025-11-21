@@ -52,6 +52,10 @@ Aurora.SpellHandler.PopulateSpellbook({
 
         Burning_Rush = NewSpell(111400),                   --爆燃冲刺 火跑
 
+        Kureshuaijie = NewSpell(456939),                   --酷热衰竭 天赋
+
+        Moxingxiongcan = NewSpell(456943),                 --魔性凶残 天赋
+
 
 
         --打断技能
@@ -76,21 +80,17 @@ Aurora.SpellHandler.PopulateSpellbook({
 
 
 
-
-
         -- 宠物召唤技能
 
         Fel_Domination = NewSpell(333889), -- 邪能统御 --释放后可以无施法时间 直接召唤宠物 在释放宠物前 释放此技能
 
-        summon_lmp = NewSpell(688),        -- 召唤小鬼
+        summon_imp = NewSpell(688),        -- 召唤小鬼
 
         summon_voidwalker = NewSpell(697), --召唤虚空行者
 
         summon_Sayaad = NewSpell(366222),  -- 召唤赛亚德
 
         summon_felhunter = NewSpell(691),  -- 召唤地狱猎犬
-
-
 
 
 
@@ -103,6 +103,14 @@ Aurora.SpellHandler.PopulateSpellbook({
         fireblood = NewSpell(265221),      -- 火焰之血（血精灵/地精等种族技能）
 
         ancestral_call = NewSpell(274738), -- 先祖召唤（德莱尼种族技能）
+
+
+
+        -- 【新增】快速放门宏相关技能
+
+        soul_burn = NewSpell(74434),        -- 灵魂燃烧
+
+        demonic_gateway = NewSpell(111771), -- 恶魔传送门
 
     },
 

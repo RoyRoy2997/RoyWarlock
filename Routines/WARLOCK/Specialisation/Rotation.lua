@@ -20,7 +20,7 @@ local talents = Aurora.SpellHandler.Spellbooks.warlock["3"].RoyWarlock.talents
 
 -- 【新增】版本信息
 
-local ROTATION_VERSION = "1.6.0"
+local ROTATION_VERSION = "1.7.0"
 
 
 
@@ -84,15 +84,15 @@ local skillCooldowns = {
 
 
 
--- ===== 新增：拉怪补DOT模式全局变量 =====
+-- 【新增】火跑管理变量
 
-local prepullDotMode = {
+local burningRushState = {
 
-    isEnabled = false, -- 模式是否开启
+    lastMovementCheck = 0,
 
-    startTime = 0,     -- 模式开启时间戳
+    lastStandingCheck = 0,
 
-    autoCloseTime = 5  -- 自动关闭时间（5秒）
+    isBurningRushActive = false
 
 }
 
@@ -240,6 +240,204 @@ local lastInterruptTime = 0
 
 
 
+
+
+-- 【修正】火跑管理功能
+
+local function BurningRushManagement()
+    -- 检查火跑功能是否启用
+
+    if not GetConfig("burning_rush_enabled", false) then
+        return false
+    end
+
+
+
+    local currentTime = GetTime()
+
+    local burningRushHealth = GetConfig("burning_rush_health", 50)
+
+    local moveTimeThreshold = GetConfig("burning_rush_move_time", 3)
+
+    local standTimeThreshold = GetConfig("burning_rush_stand_time", 2)
+
+    local oocEnabled = GetConfig("burning_rush_ooc", false)
+
+
+
+    -- 检查是否在脱战状态且脱战启用未开启
+
+    if not player.combat and not oocEnabled then
+        -- 如果在脱战状态且脱战启用未开启，但有火跑buff，则关闭
+
+        if player.aura(111400) then
+            if spells.Burning_Rush:ready() and spells.Burning_Rush:castable(player) then
+                spells.Burning_Rush:cast(player)
+
+                print("脱战状态，关闭火跑")
+
+                return true
+            end
+        end
+
+        return false
+    end
+
+
+
+    -- 检查血量条件 - 血量过低时关闭火跑
+
+    if player.hp < burningRushHealth then
+        if player.aura(111400) then
+            if spells.Burning_Rush:ready() and spells.Burning_Rush:castable(player) then
+                spells.Burning_Rush:cast(player)
+
+                print("血量过低，关闭火跑")
+
+                return true
+            end
+        end
+
+        return false
+    end
+
+
+
+    -- 检查移动状态并更新计时器
+
+    if player.moving then
+        burningRushState.lastMovementCheck = currentTime
+
+        -- 重置站立计时器
+
+        if burningRushState.lastStandingCheck == 0 then
+            burningRushState.lastStandingCheck = currentTime
+        end
+    else
+        burningRushState.lastStandingCheck = currentTime
+
+        -- 重置移动计时器
+
+        if burningRushState.lastMovementCheck == 0 then
+            burningRushState.lastMovementCheck = currentTime
+        end
+    end
+
+
+
+    local hasBurningRush = player.aura(111400)
+
+
+
+    -- 检查是否需要开启火跑
+
+    if hasBurningRush then
+        -- 持续移动时间超过阈值，开启火跑
+
+        if currentTime - burningRushState.lastMovementCheck >= moveTimeThreshold then
+            if spells.Burning_Rush:ready() and spells.Burning_Rush:castable(player) then
+                if spells.Burning_Rush:cast(player) then
+                    print("站立时间达到阈值，关闭火跑")
+
+                    return true
+                end
+            end
+        end
+    else
+        -- 火跑已激活，检查是否需要关闭
+
+        -- 站立时间超过阈值，关闭火跑
+
+        if currentTime - burningRushState.lastStandingCheck >= standTimeThreshold then
+            if spells.Burning_Rush:ready() and spells.Burning_Rush:castable(player) then
+                spells.Burning_Rush:cast(player)
+
+                print("移动时间达到阈值，开启火跑")
+
+                return true
+            end
+        end
+    end
+
+
+
+    return false
+end
+
+
+
+-- 【新增】聚拢检测功能
+
+local function ShouldUseAOE()
+    -- 检查聚拢功能是否启用
+
+    if not GetConfig("gathering_check_enabled", false) then
+        return true
+    end
+
+
+
+    local gatheringPercentage = GetConfig("gathering_percentage", 50) / 100
+
+
+
+    -- 获取坦克单位
+
+    local tank = Aurora.UnitManager.tank
+
+    if not tank.exists then
+        return true -- 没有坦克，默认允许AOE
+    end
+
+
+
+    -- 统计所有在战斗中的敌人
+
+    local totalEnemies = 0
+
+    local enemiesNearTank = 0
+
+
+
+    Aurora.enemies:within(40):each(function(enemy)
+        if enemy.exists and enemy.alive and enemy.combat then
+            totalEnemies = totalEnemies + 1
+
+            -- 检查敌人是否在坦克8码范围内
+
+            if enemy:distanceto(tank) <= 8 then
+                enemiesNearTank = enemiesNearTank + 1
+            end
+        end
+    end)
+
+
+
+    -- 计算聚拢百分比
+
+    if totalEnemies == 0 then
+        return true
+    end
+
+
+
+    local actualPercentage = enemiesNearTank / totalEnemies
+
+
+
+    -- 如果聚拢百分比达到阈值，允许AOE
+
+    if actualPercentage >= gatheringPercentage then
+        return true
+    else
+        print(string.format("聚拢检测: %.1f%% < %.1f%%，暂不释放AOE技能", actualPercentage * 100, gatheringPercentage * 100))
+
+        return false
+    end
+end
+
+
+
 -- 【修改】智能打断系统 - 修复配置读取
 
 local function SmartInterrupts()
@@ -305,7 +503,7 @@ local function SmartInterrupts()
 
 
 
-    Aurora.enemies:within(15):each(function(enemy)
+    Aurora.enemies:within(40):each(function(enemy)
         if enemy.exists and enemy.casting and enemy.castinginterruptible and enemy.combat then
             local castId = enemy.castingspellid
 
@@ -956,6 +1154,68 @@ end
 
 
 
+--拉怪补dot
+
+-- 【修正】拉怪补DOT模式管理
+
+local function PrepullDotManagement()
+    -- 检查状态栏是否启用
+
+    if not IsToggleEnabled("PrepullToggle") then
+        return false
+    end
+
+
+
+    -- 统计所有需要补dot的敌人
+
+    local enemiesNeedWither = 0
+
+    local bestTarget = nil
+
+    local bestScore = -9999
+
+
+
+    -- 遍历所有敌人，找到需要补dot的目标
+
+    Aurora.enemies:within(40):each(function(enemy)
+        if enemy.exists and enemy.alive and enemy.combat then
+            local witherRemains = enemy.auraremains(445474) or 0
+
+            -- 如果没有枯萎dot或剩余时间小于5秒，需要补dot
+
+            if witherRemains < 5 then
+                enemiesNeedWither = enemiesNeedWither + 1
+
+
+
+                -- 计算分数：剩余时间越少，分数越高
+
+                local score = 5 - witherRemains
+
+                if score > bestScore then
+                    bestScore = score
+
+                    bestTarget = enemy
+                end
+            end
+        end
+    end)
+
+
+
+    -- 如果有需要补dot的目标，执行补dot
+
+    if bestTarget and spells.wither and spells.wither:ready() and spells.wither:castable(bestTarget) then
+        return spells.wither:cast(bestTarget)
+    end
+
+
+
+    return false
+end
+
 -- 【新增】TTD冷却技能判断
 
 local function ShouldUseCooldown()
@@ -984,7 +1244,7 @@ end
 
 
 
--- 【修改】智能暗影灼烧功能 - 增加状态栏控制
+-- 【重写】智能暗影灼烧功能 - 按照最佳实践重写
 
 local function SmartShadowburn()
     -- 检查暗影灼烧状态栏是否启用
@@ -1009,19 +1269,57 @@ local function SmartShadowburn()
 
 
 
-    -- 绝对优先条件1：目标生命值 < 20%（斩杀阶段）
+    -- 条件1：目标即将在5秒内死亡 - 使用暗影灼烧获取碎片返还
 
-    if target.exists and target.alive and target.hp < 20 then
-        if spells.shadowburn:castable(target) then
-            return spells.shadowburn:cast(target)
+    if target.exists and target.alive and target.combat then
+        local ttd = TimeToDieRR(target, 0)
+
+        if ttd <= 5 then
+            if spells.shadowburn:castable(target) then
+                return spells.shadowburn:cast(target)
+            end
         end
     end
 
 
 
-    -- 绝对优先条件2：灵魂碎片 ≥ 4 个（接近上限）
+    -- 条件2：灵魂碎片即将溢出（>=4）且无法对3个或更少敌人施放混乱箭
 
     if soul_shard >= 4 then
+        -- 检查是否无法使用混乱箭（敌人数量>3、移动中、或者其他原因）
+
+        local cannotCastChaosBolt = active_enemies > aoeThreshold or
+
+            player.moving or
+
+            not spells.chaos_bolt:ready() or
+
+            not spells.chaos_bolt:castable(target)
+
+
+
+        if cannotCastChaosBolt then
+            if spells.shadowburn:castable(target) then
+                return spells.shadowburn:cast(target)
+            end
+        end
+    end
+
+
+
+    -- 条件3：暗影灼烧即将冷却结束且有2层充能，或者需要移动时
+
+    local charges = spells.shadowburn:charges() or 0
+
+    local maxCharges = spells.shadowburn:maxcharges() or 2
+
+    local timeToNextCharge = spells.shadowburn:timetonextcharge() or 0
+
+
+
+    -- 即将获得充能且当前充能接近满层
+
+    if (charges >= maxCharges - 1 and timeToNextCharge < 2) or player.moving then
         if spells.shadowburn:castable(target) then
             return spells.shadowburn:cast(target)
         end
@@ -1029,30 +1327,46 @@ local function SmartShadowburn()
 
 
 
-    -- 寻找血量最低的敌人（斩杀优先级）
+    -- 条件4：目标血量低于30%且拥有特定天赋（这里需要检测天赋，暂时用通用逻辑）
+
+    if target.exists and target.alive and target.hp < 30 then
+        if spells.Kureshuaijie:isknown() then
+            local shouldUseInExecute = soul_shard >= 2 or player.moving or charges >= maxCharges - 1
+
+
+
+            if shouldUseInExecute and spells.shadowburn:castable(target) then
+                return spells.shadowburn:cast(target)
+            end
+        end
+    end
+
+
+
+
+
+    -- 条件5：寻找即将死亡的低血量目标
 
     local lowestHealthTarget = nil
 
     local lowestHealth = 100
 
+    local lowHealthTargets = {}
+
 
 
     Aurora.enemies:within(40):each(function(enemy)
         if enemy.exists and enemy.alive and enemy.combat then
-            -- 优先选择血量低于30%的目标（斩杀阶段）
+            -- 收集所有血量低于40%的目标
 
-            if enemy.hp < 30 and enemy.hp < lowestHealth then
-                lowestHealth = enemy.hp
+            if enemy.hp < 40 then
+                table.insert(lowHealthTargets, enemy)
 
-                lowestHealthTarget = enemy
-            end
+                if enemy.hp < lowestHealth then
+                    lowestHealth = enemy.hp
 
-            -- 如果没有斩杀目标，选择血量最低的目标
-
-            if lowestHealthTarget == nil and enemy.hp < lowestHealth then
-                lowestHealth = enemy.hp
-
-                lowestHealthTarget = enemy
+                    lowestHealthTarget = enemy
+                end
             end
         end
     end)
@@ -1062,7 +1376,7 @@ local function SmartShadowburn()
     -- 对最低血量目标使用暗影灼烧
 
     if lowestHealthTarget and spells.shadowburn:castable(lowestHealthTarget) then
-        -- 小怪即将死亡（5秒内）时使用暗影灼烧获取碎片返还
+        -- 小怪即将死亡（5秒内）时优先使用
 
         local ttd = TimeToDieRR(lowestHealthTarget, 0)
 
@@ -1072,12 +1386,10 @@ local function SmartShadowburn()
 
 
 
-        -- 单体战斗中常规使用
+        -- 在AOE战斗中，对低血量目标使用暗影灼烧
 
-        if active_enemies <= aoeThreshold then
-            if spells.shadowburn:charges() > 1 then
-                return spells.shadowburn:cast(lowestHealthTarget)
-            end
+        if active_enemies > aoeThreshold and lowestHealthTarget.hp < 30 then
+            return spells.shadowburn:cast(lowestHealthTarget)
         end
     end
 
@@ -1085,6 +1397,8 @@ local function SmartShadowburn()
 
     return false
 end
+
+
 
 
 
@@ -1118,6 +1432,22 @@ local function Dps()
     -- 获取当前灵魂碎片数量（若为nil则默认0，避免报错）
 
     local soul_shard = player.soulshards or 0
+
+
+
+    -- 【修正】优先级0：拉怪补DOT模式 - 如果开启则只执行这个逻辑
+
+    if IsToggleEnabled("PrepullToggle") then
+        return PrepullDotManagement()
+    end
+
+
+
+    -- 【新增】优先级0.5：火跑管理
+
+    if BurningRushManagement() then
+        return true
+    end
 
 
 
@@ -1165,6 +1495,10 @@ local function Dps()
 
 
 
+
+
+
+
     -- 【新增】优先级6：补枯萎dot（在大灾变CD或敌人数量不足时）
 
     if active_enemies < aoeThreshold or not spells.cataclysm:ready() then
@@ -1175,10 +1509,16 @@ local function Dps()
 
 
 
+    -- 【修改】AOE技能添加聚拢检测
+
+    local shouldUseAOE = ShouldUseAOE()
+
+
+
     -- actions.assisted_combat+=/cataclysm --大灾变
 
     if spells.cataclysm:isknown() and spells.cataclysm:ready() and spells.cataclysm:castable(player) then
-        if active_enemies >= aoeThreshold then
+        if active_enemies >= aoeThreshold and shouldUseAOE then
             spells.cataclysm:smartaoe(target, {
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
@@ -1335,10 +1675,10 @@ local function Dps()
 
 
 
-    -- 【修改】火焰之雨 - 使用AOE阈值配置
+    -- 【修改】火焰之雨 - 使用AOE阈值配置和聚拢检测
 
     if spells.rain_of_fire:isknown() and spells.rain_of_fire:ready() and spells.rain_of_fire:castable(player) then
-        if active_enemies >= aoeThreshold then
+        if active_enemies >= aoeThreshold and shouldUseAOE then
             spells.rain_of_fire:smartaoe(player, {
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
@@ -1371,11 +1711,7 @@ local function Dps()
 
 
 
-    -- 【修改】暗影灼烧 - 使用智能暗影灼烧功能
 
-    if SmartShadowburn() then
-        return true
-    end
 
 
 
@@ -1462,6 +1798,22 @@ local function Dps()
             spells.chaos_bolt:cast(target)
 
             return true
+        end
+    end
+
+
+
+    -- 【修改】暗影灼烧 - 使用智能暗影灼烧功能
+
+    if SmartShadowburn() then
+        return true
+    end
+
+
+
+    if player.moving then
+        if spells.shadowburn and spells.shadowburn:ready() then
+            return spells.shadowburn:cast(target)
         end
     end
 
@@ -1567,6 +1919,16 @@ local function Ooc()
 
 
 
+    -- 【新增】非战斗状态火跑管理
+
+    if GetConfig("burning_rush_ooc", false) then
+        if BurningRushManagement() then
+            return true
+        end
+    end
+
+
+
     if GrimoireManagement() then return true end
 
 
@@ -1616,13 +1978,13 @@ local function CheckRotationVersion()
 
         print("版本: " .. ROTATION_VERSION)
 
-        print("• 修复配置读取问题")
+        print("• 新增拉怪补DOT模式")
 
-        print("• 增加死亡缠绕打断选项")
+        print("• 新增火跑自动管理")
 
-        print("• 增加暗影灼烧状态栏控制")
+        print("• 新增聚拢检测功能")
 
-        print("• 优化界面设置")
+        print("• 优化界面布局")
 
         print("=============================")
 
