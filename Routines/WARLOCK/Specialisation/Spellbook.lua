@@ -60,7 +60,9 @@ Aurora.SpellHandler.PopulateSpellbook({
 
         --打断技能
 
-        spell_lock = NewSpell(119910), -- 法术锁定 单体打断
+        spell_lock = NewSpell(119910),        -- 法术锁定 单体打断
+
+        spell_lock_modian = NewSpell(132409), --牺牲魔典下的法术锁定
 
         --硬控技能
 

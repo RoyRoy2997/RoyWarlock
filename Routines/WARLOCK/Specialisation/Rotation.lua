@@ -20,7 +20,7 @@ local talents = Aurora.SpellHandler.Spellbooks.warlock["3"].RoyWarlock.talents
 
 -- 【新增】版本信息
 
-local ROTATION_VERSION = "1.7.0"
+local ROTATION_VERSION = "1.8.0"
 
 
 
@@ -79,6 +79,8 @@ local randomInterruptDelay = 0
 local skillCooldowns = {
 
     spell_lock = 0,
+
+    spell_lock_modian = 0,
 
 }
 
@@ -483,7 +485,7 @@ local function SmartInterrupts()
         local castId = focusTarget.castingspellid
 
         if interruptList[castId] then
-            if spells.spell_lock:cast(focusTarget) then
+            if spells.spell_lock:cast(focusTarget) or spells.spell_lock_modian:cast(focusTarget) then
                 lastRandomInterruptTime = currentTime
 
                 randomInterruptDelay = random(0.5, 1.5) -- 随机延迟0.5-1.5秒
@@ -521,7 +523,8 @@ local function SmartInterrupts()
         local firstDangerousEnemy = enemiesCastingDangerous[1]
 
         if firstDangerousEnemy then
-            local success = spells.spell_lock:cast(firstDangerousEnemy)
+            local success = spells.spell_lock:cast(firstDangerousEnemy) or
+                spells.spell_lock_modian:cast(firstDangerousEnemy)
 
             if success then
                 lastRandomInterruptTime = currentTime
@@ -543,7 +546,9 @@ local function SmartInterrupts()
         local castId = target.castingspellid
 
         if interruptList[castId] then
-            if spells.spell_lock:cast(target) then
+            if spells.spell_lock:cast(target) or
+
+                spells.spell_lock_modian:cast(target) then
                 lastRandomInterruptTime = currentTime
 
                 randomInterruptDelay = random(0.5, 1.5)
@@ -751,7 +756,7 @@ local function PetManagement()
         return false
     end
 
-
+    if player.aura(196099) then return false end --牺牲魔典
 
     if HasActivePet() then return false end
 
@@ -1244,6 +1249,30 @@ end
 
 
 
+--移动补技能逻辑
+
+local function moveSpell()
+    if not (spells.conflagrate:ready() and spells.conflagrate:castable(target)) then
+        return false
+    end
+
+    if spells.conflagrate and spells.conflagrate:ready() and spells.conflagrate:castable(target) then
+        spells.conflagrate:cast(target)
+
+        return true
+    end
+
+
+
+    if not (spells.shadowburn and spells.shadowburn:ready()) then
+        return false
+    end
+
+    if spells.shadowburn and spells.shadowburn:ready() then
+        return spells.shadowburn:cast(target)
+    end
+end
+
 -- 【重写】智能暗影灼烧功能 - 按照最佳实践重写
 
 local function SmartShadowburn()
@@ -1405,6 +1434,14 @@ end
 -- 冷却技能列表（按顺序执行）
 
 local function Dps()
+    --移动补技能逻辑
+
+    if player.moving then
+        if moveSpell() then
+            return true
+        end
+    end
+
     -- 定义过滤函数：只统计"存活"且"在战斗中"的敌人
 
     local combatEnemyFilter = function(unit)
@@ -1426,6 +1463,12 @@ local function Dps()
     -- 【新增】获取AOE阈值配置
 
     local aoeThreshold = GetConfig("aoe_threshold", 3)
+
+
+
+    -- 【新增】获取大灾变AOE阈值
+
+    local cataclysmThreshold = GetConfig("cataclysm_threshold", 3)
 
 
 
@@ -1518,7 +1561,7 @@ local function Dps()
     -- actions.assisted_combat+=/cataclysm --大灾变
 
     if spells.cataclysm:isknown() and spells.cataclysm:ready() and spells.cataclysm:castable(player) then
-        if active_enemies >= aoeThreshold and shouldUseAOE then
+        if active_enemies >= cataclysmThreshold and shouldUseAOE then
             spells.cataclysm:smartaoe(target, {
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
@@ -1565,7 +1608,7 @@ local function Dps()
 
     -- 【修改】冷却技能判断 - 加入TTD条件
 
-    if Aurora.Rotation.Cooldown:GetValue() and ShouldUseCooldown() then --cooldown
+    if IsToggleEnabled("BigBurstToggle") and ShouldUseCooldown() then --cooldown
         -- actions.cooldowns+=/blood_fury（兽人种族技能）
 
         if spells.blood_fury:isknown() and spells.blood_fury:ready() and spells.blood_fury:castable(player) then
@@ -1608,6 +1651,8 @@ local function Dps()
 
         -- actions.cooldowns+=/summon_infernal --地狱火
 
+
+
         if spells.summon_infernal:isknown() and spells.summon_infernal:ready() and spells.summon_infernal:castable(player) then
             spells.summon_infernal:smartaoe(target, {
 
@@ -1625,11 +1670,13 @@ local function Dps()
 
             return true
         end
+    end
 
 
 
-        -- actions.assisted_combat+=/malevolence --怨毒
+    -- actions.assisted_combat+=/malevolence --怨毒
 
+    if IsToggleEnabled("SmallBurstToggle") and ShouldUseCooldown() then
         if spells.malevolence and spells.malevolence:ready() and spells.malevolence:castable(player) then
             spells.malevolence:cast(player)
 
@@ -1811,12 +1858,6 @@ local function Dps()
 
 
 
-    if player.moving then
-        if spells.shadowburn and spells.shadowburn:ready() then
-            return spells.shadowburn:cast(target)
-        end
-    end
-
 
 
     -- actions.assisted_combat+=/dimensional_rift
@@ -1978,13 +2019,11 @@ local function CheckRotationVersion()
 
         print("版本: " .. ROTATION_VERSION)
 
-        print("• 新增拉怪补DOT模式")
+        print("• 新增大灾变单独AOE阈值")
 
-        print("• 新增火跑自动管理")
+        print("• 删除默认状态栏，新增小爆发/大爆发状态栏")
 
-        print("• 新增聚拢检测功能")
-
-        print("• 优化界面布局")
+        print("• 优化状态栏控制逻辑")
 
         print("=============================")
 

@@ -15,12 +15,16 @@ local L = {
         language = "界面语言",
         language_tooltip = "选择界面显示语言",
         tutorial = "使用教程",
-        tutorial_text = "毁灭术专精循环，包含智能宠物管理、基础减伤和打断功能。",
+        tutorial_text = "自动目标：Aurora设置>Modules>Auto Target>Highest>Lock After Acquire 3.0",
 
         -- 战斗设置
         aoe_settings = "AOE设置",
         aoe_threshold = "AOE阈值",
-        aoe_threshold_tooltip = "敌人数量达到此值时释放AOE技能（火焰之雨、大灾变）",
+        aoe_threshold_tooltip = "敌人数量达到此值时释放AOE技能（火焰之雨）",
+
+        cataclysm_settings = "大灾变设置",
+        cataclysm_threshold = "大灾变AOE阈值",
+        cataclysm_threshold_tooltip = "敌人数量达到此值时释放大灾变",
 
         ttd_settings = "TTD设置",
         ttd_enabled = "启用TTD判断",
@@ -113,11 +117,15 @@ local L = {
         language = "Interface Language",
         language_tooltip = "Select interface display language",
         tutorial = "Usage Tutorial",
-        tutorial_text = "Destruction Warlock rotation with smart pet management, basic defense and interrupt functions.",
+        tutorial_text = "AutoTarget：Aurora settings>Modules>Auto Target>Highest>Lock After Acquire 3.0",
 
         aoe_settings = "AOE Settings",
         aoe_threshold = "AOE Threshold",
-        aoe_threshold_tooltip = "Number of enemies required to cast AOE skills (Rain of Fire, Cataclysm)",
+        aoe_threshold_tooltip = "Number of enemies required to cast AOE skills (Rain of Fire)",
+
+        cataclysm_settings = "Cataclysm Settings",
+        cataclysm_threshold = "Cataclysm AOE Threshold",
+        cataclysm_threshold_tooltip = "Number of enemies required to cast Cataclysm",
 
         ttd_settings = "TTD Settings",
         ttd_enabled = "Enable TTD Check",
@@ -222,15 +230,39 @@ local function CreateInterface()
                 Aurora.alert("Language changed to " .. value .. ". Please /reload to apply changes.", 116858)
             end
         })
+    -- 【新增】天赋代码复制按钮
+        :Header({ text = "天赋代码" })
+        :Button({
+            text = "使徒毁灭",
+            width = 100,
+            tooltip = "点击复制使徒毁灭天赋代码",
+            onClick = function()
+                local talentCode =
+                "CsQAYIOwXTfhprvln24ZeRPDbMMmxMzMjY2MMmNzMDzysZMzMzsNzwyyMzAAAAAYmtlZml5BAjZMsQGYb0CNWwAAAAAAAYGDDAA"
+                _G.CopyToClipboard(talentCode)
+                print("天赋代码已复制到剪贴板！")
+            end
+        })
+        :Button({
+            text = "枯萎毁灭",
+            width = 100,
+            tooltip = "点击复制使徒毁灭天赋代码",
+            onClick = function()
+                local talentCode =
+                "CsQAAAAAAAAAAAAAAAAAAAAAAMMmxMzMjYWMPgxsZmZYWmNjxMmFzwyyMzAAAAAGzstMzsMsADMLGzYGAzG2wAAAAAAAYmZGDAA"
+                _G.CopyToClipboard(talentCode)
+                print("天赋代码已复制到剪贴板！")
+            end
+        })
 
 
         :Header({ text = T("tutorial") })
         :Text({
             text = T("tutorial_text"),
             color = "normal",
-            size = 10
+            size = 10,
+            width = 500
         })
-
 
         :Tab(T("combat"))
         :Header({ text = T("aoe_settings") })
@@ -242,6 +274,15 @@ local function CreateInterface()
             step = 1,
             default = 3,
             tooltip = T("aoe_threshold_tooltip")
+        })
+        :Slider({
+            text = T("cataclysm_threshold"),
+            key = "RoyWarlock.cataclysm_threshold",
+            min = 1,
+            max = 10,
+            step = 1,
+            default = 3,
+            tooltip = T("cataclysm_threshold_tooltip")
         })
 
 
@@ -454,27 +495,39 @@ end
 
 -- 注册状态栏
 local function RegisterStatusToggles()
-    Aurora.Rotation.InterruptToggle = Aurora:AddGlobalToggle({
-        label = "打断",
-        var = "RoyWarlock_Interrupt",
-        icon = 119910, -- 法术锁定图标
-        tooltip = "启用自动打断",
+    -- 尝试通过状态栏对象本身删除
+    if Aurora.Rotation.Cooldown and Aurora.Rotation.Cooldown.var then
+        local removed = Aurora:RemoveGlobalToggle(Aurora.Rotation.Cooldown.var)
+        if removed then
+            print("成功删除冷却状态栏")
+        else
+            print("冷却状态栏删除失败")
+        end
+    end
+
+    if Aurora.Rotation.Interrupt and Aurora.Rotation.Interrupt.var then
+        local removed = Aurora:RemoveGlobalToggle(Aurora.Rotation.Interrupt.var)
+        if removed then
+            print("成功删除打断状态栏")
+        else
+            print("打断状态栏删除失败")
+        end
+    end
+
+    -- 添加新的状态栏
+    Aurora.Rotation.SmallBurstToggle = Aurora:AddGlobalToggle({
+        label = "小爆发",
+        var = "RoyWarlock_SmallBurst",
+        icon = 442726, -- 怨毒图标
+        tooltip = "启用怨毒",
         default = true
     })
 
-    Aurora.Rotation.HardControlToggle = Aurora:AddGlobalToggle({
-        label = "硬控",
-        var = "RoyWarlock_HardControl",
-        icon = 30283, -- 暗影之怒图标
-        tooltip = "启用硬控打断（暗影之怒/死亡缠绕）",
-        default = true
-    })
-
-    Aurora.Rotation.DefensiveToggle = Aurora:AddGlobalToggle({
-        label = "减伤",
-        var = "RoyWarlock_Defensive",
-        icon = 104773, -- 不灭决心图标
-        tooltip = "启用自动减伤",
+    Aurora.Rotation.BigBurstToggle = Aurora:AddGlobalToggle({
+        label = "大爆发",
+        var = "RoyWarlock_BigBurst",
+        icon = 1122, -- 召唤地狱火图标
+        tooltip = "启用召唤地狱火",
         default = true
     })
 
@@ -485,6 +538,24 @@ local function RegisterStatusToggles()
         tooltip = "启用陨灭技能释放",
         default = true
     })
+
+    Aurora.Rotation.InterruptToggle = Aurora:AddGlobalToggle({
+        label = "打断",
+        var = "RoyWarlock_Interrupt",
+        icon = 119910, -- 法术锁定图标
+        tooltip = "启用自动打断",
+        default = true
+    })
+
+    -- 保留其他自定义状态栏
+    Aurora.Rotation.DefensiveToggle = Aurora:AddGlobalToggle({
+        label = "减伤",
+        var = "RoyWarlock_Defensive",
+        icon = 104773, -- 不灭决心图标
+        tooltip = "启用自动减伤",
+        default = true
+    })
+
 
     Aurora.Rotation.WitherToggle = Aurora:AddGlobalToggle({
         label = "补枯萎",
