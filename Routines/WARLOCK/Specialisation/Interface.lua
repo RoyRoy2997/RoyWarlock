@@ -417,9 +417,10 @@ local function CreateInterface()
             options = {
                 { text = T("联动地狱火"), value = "infernal" },
                 { text = T("卡CD使用"), value = "cd" },
+                { text = T("嗜血时使用"), value = "bloodlust" }, -- 【新增】嗜血选项
                 { text = T("不使用"), value = "none" }
             },
-            default = "infernal",
+            default = "bloodlust",
             tooltip = T("potion_mode_tooltip")
         })
         :Slider({
@@ -460,7 +461,7 @@ local function CreateInterface()
         :Slider({
             text = T("burning_rush_move_time"),
             key = "RoyWarlock.burning_rush_move_time",
-            min = 1,
+            min = 0.5,
             max = 10,
             step = 0.5,
             default = 1.5,
@@ -469,7 +470,7 @@ local function CreateInterface()
         :Slider({
             text = T("burning_rush_stand_time"),
             key = "RoyWarlock.burning_rush_stand_time",
-            min = 1,
+            min = 0.5,
             max = 10,
             step = 0.5,
             default = 1.5,

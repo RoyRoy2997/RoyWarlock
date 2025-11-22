@@ -136,6 +136,22 @@ end
 
 
 
+-- 【新增】嗜血检测函数
+
+local function HasBloodlust()
+    local bloodlustSpells = { 444257, 264667, 390386, 466904, 80353, 32182, 2825 } --- 444257 鼓 264667 猎人 390386 龙人 466904 射击猎 80353法师 38182英勇 2825嗜血
+
+    for _, spellID in ipairs(bloodlustSpells) do
+        if player.aura(spellID) then
+            return true
+        end
+    end
+
+    return false
+end
+
+
+
 -- 【新增】TimeToDieRR函数 - 按照您提供的代码翻译成Aurora框架版本
 
 local function TimeToDieRR(unit, percentage)
@@ -871,6 +887,22 @@ local function SmartPotionUse()
             if potion and potion:ready() and potion:usable(player) and potion:count() > 0 then
                 if potion:use(player) then
                     return true
+                end
+            end
+        end
+    elseif potionMode == "bloodlust" then
+        -- 【新增】嗜血时使用爆发药水
+
+        local burstPotions = { potions.burst_3star, potions.burst_2star, potions.burst_1star }
+
+        if HasBloodlust() then
+            for _, potion in ipairs(burstPotions) do
+                if potion:isknown() and potion:count() > 0 then
+                    if potion:use(player) then
+                        print("检测到嗜血效果，使用爆发药水！")
+
+                        return true
+                    end
                 end
             end
         end
