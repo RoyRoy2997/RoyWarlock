@@ -492,6 +492,70 @@ local function CreateInterface()
             default = 75,
             tooltip = T("gathering_percentage_tooltip")
         })
+
+        :Tab("宏命令管理")
+        :Header({ text = "状态栏宏命令" })
+        :Text({
+            text = "点击下方按钮复制对应的宏命令，然后在游戏内创建宏并绑定快捷键。强调：请将aurora改成自己的空间名称。",
+            color = "normal",
+            size = 10
+        })
+        :Button({
+            text = "复制强制单体宏",
+            onClick = function()
+                _G.CopyToClipboard("/aurora forcesingle")
+                print("宏命令已复制到剪贴板：/aurora forcesingle")
+            end
+        })
+        :Button({
+            text = "复制小爆发宏",
+            onClick = function()
+                _G.CopyToClipboard("/aurora smallburst")
+                print("宏命令已复制到剪贴板：/aurora smallburst")
+            end
+        })
+        :Button({
+            text = "复制大爆发宏",
+            onClick = function()
+                _G.CopyToClipboard("/aurora bigburst")
+                print("宏命令已复制到剪贴板：/aurora bigburst")
+            end
+        })
+        :Button({
+            text = "复制减伤宏",
+            onClick = function()
+                _G.CopyToClipboard("/aurora defensive")
+                print("宏命令已复制到剪贴板：/aurora defensive")
+            end
+        })
+        :Button({
+            text = "复制陨灭宏",
+            onClick = function()
+                _G.CopyToClipboard("/aurora ruination")
+                print("宏命令已复制到剪贴板：/aurora ruination")
+            end
+        })
+        :Button({
+            text = "复制补枯萎宏",
+            onClick = function()
+                _G.CopyToClipboard("/aurora wither")
+                print("宏命令已复制到剪贴板：/aurora wither")
+            end
+        })
+        :Button({
+            text = "复制暗影灼烧宏",
+            onClick = function()
+                _G.CopyToClipboard("/aurora shadowburn")
+                print("宏命令已复制到剪贴板：/aurora shadowburn")
+            end
+        })
+        :Button({
+            text = "复制拉怪补DOT宏",
+            onClick = function()
+                _G.CopyToClipboard("/aurora prepull")
+                print("宏命令已复制到剪贴板：/aurora prepull")
+            end
+        })
 end
 
 -- 注册状态栏
@@ -579,6 +643,14 @@ local function RegisterStatusToggles()
         var = "RoyWarlock_Prepull",
         icon = 445468, -- 枯萎图标
         tooltip = "启用拉怪补DOT模式，战斗10秒后自动关闭",
+        default = false
+    })
+
+    Aurora.Rotation.ForceSingleTargetToggle = Aurora:AddGlobalToggle({
+        label = "强制单体",
+        var = "RoyWarlock_ForceSingleTarget",
+        icon = 29722, -- 烧尽图标
+        tooltip = "开启后强制使用单体技能，忽略AOE阈值",
         default = false
     })
 

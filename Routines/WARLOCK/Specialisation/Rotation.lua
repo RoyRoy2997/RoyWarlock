@@ -177,7 +177,7 @@ local function TimeToDieRR(unit, percentage)
 
     local CDRS1 = 1.0                     -- 血量修正
 
-    local CDRS2 = 1.0                     -- 攻击力修正
+    local CDRS2 = 2.0                     -- 攻击力修正
 
     local prmh = player.healthmax * CDRS1 -- 玩家最大血量 * 修正
 
@@ -1492,9 +1492,19 @@ local function Dps()
 
 
 
-    -- 【新增】获取AOE阈值配置
+    -- 【新增】获取强制单体状态
+
+    local forceSingleTarget = IsToggleEnabled("ForceSingleTargetToggle")
+
+
+
+    -- 【修改】AOE阈值获取逻辑 - 如果强制单体开启，则设置阈值为999
 
     local aoeThreshold = GetConfig("aoe_threshold", 3)
+
+    if forceSingleTarget then
+        aoeThreshold = 999
+    end
 
 
 
@@ -1593,7 +1603,7 @@ local function Dps()
     -- actions.assisted_combat+=/cataclysm --大灾变
 
     if spells.cataclysm:isknown() and spells.cataclysm:ready() and spells.cataclysm:castable(player) then
-        if active_enemies >= cataclysmThreshold and shouldUseAOE then
+        if active_enemies >= cataclysmThreshold and shouldUseAOE and ShouldUseCooldown() then
             spells.cataclysm:smartaoe(target, {
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
@@ -2008,6 +2018,126 @@ local function Ooc()
 
     return false
 end
+
+
+
+-- 在RegisterStatusToggles函数之后添加宏命令注册
+
+
+
+-- 强制单体宏
+
+Aurora.Macro:RegisterCommand("forcesingle", function()
+    if Aurora.Rotation.ForceSingleTargetToggle then
+        local current = Aurora.Rotation.ForceSingleTargetToggle:GetValue()
+
+        Aurora.Rotation.ForceSingleTargetToggle:SetValue(not current)
+
+        print("强制单体: " .. (not current and "启用" or "禁用"))
+    end
+end, "切换强制单体状态")
+
+
+
+-- 小爆发宏
+
+Aurora.Macro:RegisterCommand("smallburst", function()
+    if Aurora.Rotation.SmallBurstToggle then
+        local current = Aurora.Rotation.SmallBurstToggle:GetValue()
+
+        Aurora.Rotation.SmallBurstToggle:SetValue(not current)
+
+        print("小爆发: " .. (not current and "启用" or "禁用"))
+    end
+end, "切换小爆发状态")
+
+
+
+-- 大爆发宏
+
+Aurora.Macro:RegisterCommand("bigburst", function()
+    if Aurora.Rotation.BigBurstToggle then
+        local current = Aurora.Rotation.BigBurstToggle:GetValue()
+
+        Aurora.Rotation.BigBurstToggle:SetValue(not current)
+
+        print("大爆发: " .. (not current and "启用" or "禁用"))
+    end
+end, "切换大爆发状态")
+
+
+
+-- 减伤宏
+
+Aurora.Macro:RegisterCommand("defensive", function()
+    if Aurora.Rotation.DefensiveToggle then
+        local current = Aurora.Rotation.DefensiveToggle:GetValue()
+
+        Aurora.Rotation.DefensiveToggle:SetValue(not current)
+
+        print("减伤: " .. (not current and "启用" or "禁用"))
+    end
+end, "切换减伤状态")
+
+
+
+-- 陨灭宏
+
+Aurora.Macro:RegisterCommand("ruination", function()
+    if Aurora.Rotation.RuinationToggle then
+        local current = Aurora.Rotation.RuinationToggle:GetValue()
+
+        Aurora.Rotation.RuinationToggle:SetValue(not current)
+
+        print("陨灭: " .. (not current and "启用" or "禁用"))
+    end
+end, "切换陨灭状态")
+
+
+
+-- 补枯萎宏
+
+Aurora.Macro:RegisterCommand("wither", function()
+    if Aurora.Rotation.WitherToggle then
+        local current = Aurora.Rotation.WitherToggle:GetValue()
+
+        Aurora.Rotation.WitherToggle:SetValue(not current)
+
+        print("补枯萎: " .. (not current and "启用" or "禁用"))
+    end
+end, "切换补枯萎状态")
+
+
+
+-- 暗影灼烧宏
+
+Aurora.Macro:RegisterCommand("shadowburn", function()
+    if Aurora.Rotation.ShadowburnToggle then
+        local current = Aurora.Rotation.ShadowburnToggle:GetValue()
+
+        Aurora.Rotation.ShadowburnToggle:SetValue(not current)
+
+        print("暗影灼烧: " .. (not current and "启用" or "禁用"))
+    end
+end, "切换暗影灼烧状态")
+
+
+
+-- 拉怪补DOT宏
+
+Aurora.Macro:RegisterCommand("prepull", function()
+    if Aurora.Rotation.PrepullToggle then
+        local current = Aurora.Rotation.PrepullToggle:GetValue()
+
+        Aurora.Rotation.PrepullToggle:SetValue(not current)
+
+        print("拉怪补DOT: " .. (not current and "启用" or "禁用"))
+    end
+end, "切换拉怪补DOT状态")
+
+
+
+
 
 
 
