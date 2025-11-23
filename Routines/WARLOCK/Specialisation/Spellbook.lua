@@ -28,6 +28,8 @@ Aurora.SpellHandler.PopulateSpellbook({
 
         wither = NewSpell(445468),                         -- 枯萎
 
+        Immolate = NewSpell(348),                          --献祭
+
         infernal_bolt = NewSpell(434506),                  -- 狱火箭
 
         malevolence = NewSpell(442726),                    -- 怨毒
@@ -120,7 +122,7 @@ Aurora.SpellHandler.PopulateSpellbook({
 
         -- 光环注册（对应dot/buff）
 
-        immolate = NewSpell(34884),                    -- 献祭dot
+        immolate_dot = NewSpell(34884),                -- 献祭dot
 
         wither_dot = NewSpell(445474),                 -- 枯萎dot
 
