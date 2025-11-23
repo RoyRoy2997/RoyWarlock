@@ -1622,17 +1622,17 @@ local function Dps()
         end
     end
 
-    --献祭
+    -- --献祭
 
-    if spells.Immolate and spells.Immolate:ready() and spells.Immolate:castable(target) then
-        if not target.aura(157736) or target.auraremains(157736) < 3 then
-            spells.Immolate:cast(target)
+    if not spells.wither:isknown() then
+        if spells.Immolate and spells.Immolate:ready() and spells.Immolate:castable(target) then
+            if not target.aura(157736) or target.auraremains(157736) < 3 then
+                spells.Immolate:cast(target)
 
-            return true
+                return true
+            end
         end
     end
-
-
 
     -- actions.assisted_combat+=/wither,if=!dot.immolate.ticking&!talent.wither --枯萎
 
