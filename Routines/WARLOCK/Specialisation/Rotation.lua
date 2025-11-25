@@ -20,7 +20,7 @@ local talents = Aurora.SpellHandler.Spellbooks.warlock["3"].RoyWarlock.talents
 
 -- 【新增】版本信息
 
-local ROTATION_VERSION = "1.8.0"
+local ROTATION_VERSION = "1.8.1" -- 更新版本号
 
 
 
@@ -119,6 +119,12 @@ local witherRefreshTarget = nil
 local lastDismountTime = 0
 
 local petSummonDelay = 1.0 -- 1秒延迟
+
+
+
+-- 【新增】浩劫dot ID定义
+
+local HAVOC_DOT_ID = 80240
 
 
 
@@ -257,6 +263,84 @@ local interruptTracker = {}
 local lastInterruptTime = 0
 
 
+
+-- 【新增】自定义目标选择函数
+
+local function GetCustomTarget()
+    local bestTarget = nil
+
+    local highestHealth = 0
+
+
+
+    -- 遍历所有敌人，寻找符合条件的目标
+
+    Aurora.enemies:within(40):each(function(enemy)
+        if enemy.exists and enemy.alive and enemy.combat and enemy.aggro then
+            -- 检查是否没有浩劫dot
+
+            if not enemy.aura(HAVOC_DOT_ID) then
+                -- 选择血量最高的目标
+
+                if enemy.health > highestHealth then
+                    highestHealth = enemy.health
+
+                    bestTarget = enemy
+                end
+            end
+        end
+    end)
+
+
+
+    -- 如果没有找到符合条件的自定义目标，返回原始目标
+
+    return bestTarget or target
+end
+
+
+
+-- 【新增】大灾变使用条件判断函数
+
+local function ShouldUseCataclysm()
+    local cataclysmThreshold = GetConfig("cataclysm_threshold", 3)
+
+    local active_enemies = player.enemiesaround(40)
+
+
+
+    -- 如果敌人数量未达到大灾变阈值，不使用
+
+    if active_enemies < cataclysmThreshold then
+        return false
+    end
+
+
+
+    -- 统计需要补枯萎的目标数量
+
+    local targetsNeedWither = 0
+
+    Aurora.enemies:within(40):each(function(enemy)
+        if enemy.exists and enemy.alive and enemy.combat then
+            local witherRemains = enemy.auraremains(445474) or 0
+
+            -- 如果没有枯萎debuff或剩余时间小于3秒，需要补
+
+            if witherRemains < 3 then
+                targetsNeedWither = targetsNeedWither + 1
+            end
+        end
+    end)
+
+
+
+    -- 只有当需要补枯萎的目标达到一定数量时才使用大灾变
+
+    local minTargetsNeedWither = math.min(2, cataclysmThreshold) -- 至少2个目标需要补枯萎
+
+    return targetsNeedWither >= minTargetsNeedWither
+end
 
 
 
@@ -1284,12 +1368,16 @@ end
 --移动补技能逻辑
 
 local function moveSpell()
-    if not (spells.conflagrate:ready() and spells.conflagrate:castable(target)) then
+    local customTarget = GetCustomTarget() -- 【新增】使用自定义目标
+
+
+
+    if not (spells.conflagrate:ready() and spells.conflagrate:castable(customTarget)) then
         return false
     end
 
-    if spells.conflagrate and spells.conflagrate:ready() and spells.conflagrate:castable(target) then
-        spells.conflagrate:cast(target)
+    if spells.conflagrate and spells.conflagrate:ready() and spells.conflagrate:castable(customTarget) then
+        spells.conflagrate:cast(customTarget)
 
         return true
     end
@@ -1301,7 +1389,7 @@ local function moveSpell()
     end
 
     if spells.shadowburn and spells.shadowburn:ready() then
-        return spells.shadowburn:cast(target)
+        return spells.shadowburn:cast(customTarget)
     end
 end
 
@@ -1330,14 +1418,20 @@ local function SmartShadowburn()
 
 
 
+    -- 【新增】使用自定义目标
+
+    local customTarget = GetCustomTarget()
+
+
+
     -- 条件1：目标即将在5秒内死亡 - 使用暗影灼烧获取碎片返还
 
-    if target.exists and target.alive and target.combat then
-        local ttd = TimeToDieRR(target, 0)
+    if customTarget.exists and customTarget.alive and customTarget.combat then
+        local ttd = TimeToDieRR(customTarget, 0)
 
         if ttd <= 5 then
-            if spells.shadowburn:castable(target) then
-                return spells.shadowburn:cast(target)
+            if spells.shadowburn:castable(customTarget) then
+                return spells.shadowburn:cast(customTarget)
             end
         end
     end
@@ -1355,13 +1449,13 @@ local function SmartShadowburn()
 
             not spells.chaos_bolt:ready() or
 
-            not spells.chaos_bolt:castable(target)
+            not spells.chaos_bolt:castable(customTarget)
 
 
 
         if cannotCastChaosBolt then
-            if spells.shadowburn:castable(target) then
-                return spells.shadowburn:cast(target)
+            if spells.shadowburn:castable(customTarget) then
+                return spells.shadowburn:cast(customTarget)
             end
         end
     end
@@ -1381,8 +1475,8 @@ local function SmartShadowburn()
     -- 即将获得充能且当前充能接近满层
 
     if (charges >= maxCharges - 1 and timeToNextCharge < 2) or player.moving then
-        if spells.shadowburn:castable(target) then
-            return spells.shadowburn:cast(target)
+        if spells.shadowburn:castable(customTarget) then
+            return spells.shadowburn:cast(customTarget)
         end
     end
 
@@ -1390,14 +1484,14 @@ local function SmartShadowburn()
 
     -- 条件4：目标血量低于30%且拥有特定天赋（这里需要检测天赋，暂时用通用逻辑）
 
-    if target.exists and target.alive and target.hp < 30 then
+    if customTarget.exists and customTarget.alive and customTarget.hp < 30 then
         if spells.Kureshuaijie:isknown() then
             local shouldUseInExecute = soul_shard >= 2 or player.moving or charges >= maxCharges - 1
 
 
 
-            if shouldUseInExecute and spells.shadowburn:castable(target) then
-                return spells.shadowburn:cast(target)
+            if shouldUseInExecute and spells.shadowburn:castable(customTarget) then
+                return spells.shadowburn:cast(customTarget)
             end
         end
     end
@@ -1418,15 +1512,19 @@ local function SmartShadowburn()
 
     Aurora.enemies:within(40):each(function(enemy)
         if enemy.exists and enemy.alive and enemy.combat then
-            -- 收集所有血量低于40%的目标
+            -- 检查是否没有浩劫dot
 
-            if enemy.hp < 40 then
-                table.insert(lowHealthTargets, enemy)
+            if not enemy.aura(HAVOC_DOT_ID) then
+                -- 收集所有血量低于40%的目标
 
-                if enemy.hp < lowestHealth then
-                    lowestHealth = enemy.hp
+                if enemy.hp < 40 then
+                    table.insert(lowHealthTargets, enemy)
 
-                    lowestHealthTarget = enemy
+                    if enemy.hp < lowestHealth then
+                        lowestHealth = enemy.hp
+
+                        lowestHealthTarget = enemy
+                    end
                 end
             end
         end
@@ -1466,6 +1564,12 @@ end
 -- 冷却技能列表（按顺序执行）
 
 local function Dps()
+    -- 【新增】获取自定义目标
+
+    local customTarget = GetCustomTarget()
+
+
+
     --移动补技能逻辑
 
     if player.moving then
@@ -1600,11 +1704,13 @@ local function Dps()
 
 
 
+    -- 【修改】大灾变使用逻辑 - 添加智能判断
+
     -- actions.assisted_combat+=/cataclysm --大灾变
 
     if spells.cataclysm:isknown() and spells.cataclysm:ready() and spells.cataclysm:castable(player) then
-        if active_enemies >= cataclysmThreshold and shouldUseAOE and ShouldUseCooldown() then
-            spells.cataclysm:smartaoe(target, {
+        if active_enemies >= cataclysmThreshold and shouldUseAOE and ShouldUseCooldown() and ShouldUseCataclysm() then
+            spells.cataclysm:smartaoe(customTarget, {
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
 
@@ -1625,9 +1731,9 @@ local function Dps()
     -- --献祭
 
     if not spells.wither:isknown() then
-        if spells.Immolate and spells.Immolate:ready() and spells.Immolate:castable(target) then
-            if not target.aura(157736) or target.auraremains(157736) < 3 then
-                spells.Immolate:cast(target)
+        if spells.Immolate and spells.Immolate:ready() and spells.Immolate:castable(customTarget) then
+            if not customTarget.aura(157736) or customTarget.auraremains(157736) < 3 then
+                spells.Immolate:cast(customTarget)
 
                 return true
             end
@@ -1636,9 +1742,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/wither,if=!dot.immolate.ticking&!talent.wither --枯萎
 
-    if spells.wither and spells.wither:ready() and spells.wither:castable(target) then
-        if not target.aura(auras.immolate) and not talents.wither_talent then
-            spells.wither:cast(target)
+    if spells.wither and spells.wither:ready() and spells.wither:castable(customTarget) then
+        if not customTarget.aura(auras.immolate) and not talents.wither_talent then
+            spells.wither:cast(customTarget)
 
             return true
         end
@@ -1648,9 +1754,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/wither,if=!dot.wither.ticking&talent.wither --枯萎
 
-    if spells.wither and spells.wither:ready() and spells.wither:castable(target) then
-        if not target.aura(445474) and talents.wither_talent then
-            spells.wither:cast(target)
+    if spells.wither and spells.wither:ready() and spells.wither:castable(customTarget) then
+        if not customTarget.aura(445474) and talents.wither_talent then
+            spells.wither:cast(customTarget)
 
             return true
         end
@@ -1706,7 +1812,7 @@ local function Dps()
 
 
         if spells.summon_infernal:isknown() and spells.summon_infernal:ready() and spells.summon_infernal:castable(player) then
-            spells.summon_infernal:smartaoe(target, {
+            spells.summon_infernal:smartaoe(customTarget, {
 
                 offsetMin = 0,  -- 最小偏移距离（避免贴脸）
 
@@ -1740,9 +1846,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/infernal_bolt,if=buff.infernal_bolt.up&buff.infernal_bolt.remains<=5 --狱火箭
 
-    if spells.infernal_bolt and spells.infernal_bolt:ready() and spells.infernal_bolt:castable(target) then
+    if spells.infernal_bolt and spells.infernal_bolt:ready() and spells.infernal_bolt:castable(customTarget) then
         if player.aura(433891) and player.auraremains(433891) <= 5 then
-            spells.infernal_bolt:cast(target)
+            spells.infernal_bolt:cast(customTarget)
 
             return true
         end
@@ -1752,9 +1858,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/incinerate,if=buff.infernal_bolt.up&buff.infernal_bolt.remains<=5 --烧尽
 
-    if spells.incinerate and spells.incinerate:ready() and spells.incinerate:castable(target) then
+    if spells.incinerate and spells.incinerate:ready() and spells.incinerate:castable(customTarget) then
         if player.aura(433891) and player.auraremains(433891) <= 5 then
-            spells.incinerate:cast(target)
+            spells.incinerate:cast(customTarget)
 
             return true
         end
@@ -1765,7 +1871,7 @@ local function Dps()
     -- actions.assisted_combat+=/channel_demonfire,if=target.distance<=40  --引导恶魔之火
 
     if spells.channel_demonfire and spells.channel_demonfire:ready() and spells.channel_demonfire:castable(player) then
-        if target:distanceto(player) <= 40 then
+        if customTarget:distanceto(player) <= 40 then
             spells.channel_demonfire:cast(player)
 
             return true
@@ -1800,9 +1906,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/soul_fire,if=buff.decimation.up&soul_shard<=4 --灵魂之火
 
-    if spells.soul_fire and spells.soul_fire:ready() and spells.soul_fire:castable(target) then
+    if spells.soul_fire and spells.soul_fire:ready() and spells.soul_fire:castable(customTarget) then
         if player.aura(457555) and soul_shard <= 4 then --屠戮buff 457555 5个碎片自动获得
-            spells.soul_fire:cast(target)
+            spells.soul_fire:cast(customTarget)
 
             return true
         end
@@ -1818,9 +1924,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/conflagrate,if=buff.backdraft.down&soul_shard>=1.5&active_enemies<=2 --燃烧
 
-    if spells.conflagrate and spells.conflagrate:ready() and spells.conflagrate:castable(target) then
+    if spells.conflagrate and spells.conflagrate:ready() and spells.conflagrate:castable(customTarget) then
         if not player.aura(117828) and soul_shard >= 1.5 and active_enemies <= aoeThreshold then
-            spells.conflagrate:cast(target)
+            spells.conflagrate:cast(customTarget)
 
             return true
         end
@@ -1833,9 +1939,9 @@ local function Dps()
     if IsToggleEnabled("RuinationToggle") then
         -- actions.assisted_combat+=/ruination,if=active_enemies<=2&soul_shard>=4,cooldown_allow_casting_success=1
 
-        if spells.ruination and spells.ruination:ready() and spells.ruination:castable(target) then
+        if spells.ruination and spells.ruination:ready() and spells.ruination:castable(customTarget) then
             if soul_shard >= 4 and active_enemies <= aoeThreshold then
-                spells.chaos_bolt:cast(target)
+                spells.chaos_bolt:cast(customTarget)
 
                 return true
             end
@@ -1845,9 +1951,9 @@ local function Dps()
 
         -- actions.assisted_combat+=/ruination,if=active_enemies<=2&soul_shard>=2&buff.ritual_of_ruin.up,cooldown_allow_casting_success=1
 
-        if spells.ruination and spells.ruination:ready() and spells.ruination:castable(target) then
+        if spells.ruination and spells.ruination:ready() and spells.ruination:castable(customTarget) then
             if soul_shard >= 4 and active_enemies <= aoeThreshold and player.aura(387157) then
-                spells.chaos_bolt:cast(target)
+                spells.chaos_bolt:cast(customTarget)
 
                 return true
             end
@@ -1857,8 +1963,8 @@ local function Dps()
 
         -- actions.assisted_combat+=/ruination,if=active_enemies<=2
 
-        if spells.ruination and spells.ruination:ready() and spells.ruination:castable(target) then
-            spells.chaos_bolt:cast(target)
+        if spells.ruination and spells.ruination:ready() and spells.ruination:castable(customTarget) then
+            spells.chaos_bolt:cast(customTarget)
 
             return true
         end
@@ -1868,9 +1974,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/chaos_bolt,if=active_enemies<=2&soul_shard>=4,cooldown_allow_casting_success=1
 
-    if spells.chaos_bolt and spells.chaos_bolt:ready() and spells.chaos_bolt:castable(target) then
+    if spells.chaos_bolt and spells.chaos_bolt:ready() and spells.chaos_bolt:castable(customTarget) then
         if soul_shard >= 4 and active_enemies <= aoeThreshold then
-            spells.chaos_bolt:cast(target)
+            spells.chaos_bolt:cast(customTarget)
 
             return true
         end
@@ -1880,9 +1986,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/chaos_bolt,if=active_enemies<=2&soul_shard>=2&buff.ritual_of_ruin.up,cooldown_allow_casting_success=1
 
-    if spells.chaos_bolt and spells.chaos_bolt:ready() and spells.chaos_bolt:castable(target) then
+    if spells.chaos_bolt and spells.chaos_bolt:ready() and spells.chaos_bolt:castable(customTarget) then
         if soul_shard >= 4 and active_enemies <= aoeThreshold and player.aura(387157) then
-            spells.chaos_bolt:cast(target)
+            spells.chaos_bolt:cast(customTarget)
 
             return true
         end
@@ -1892,9 +1998,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/chaos_bolt,if=active_enemies<=2
 
-    if spells.chaos_bolt and spells.chaos_bolt:ready() and spells.chaos_bolt:castable(target) then
+    if spells.chaos_bolt and spells.chaos_bolt:ready() and spells.chaos_bolt:castable(customTarget) then
         if active_enemies <= aoeThreshold then
-            spells.chaos_bolt:cast(target)
+            spells.chaos_bolt:cast(customTarget)
 
             return true
         end
@@ -1914,8 +2020,8 @@ local function Dps()
 
     -- actions.assisted_combat+=/dimensional_rift
 
-    if spells.dimensional_rift and spells.dimensional_rift:ready() and spells.dimensional_rift:castable(target) then
-        spells.dimensional_rift:cast(target)
+    if spells.dimensional_rift and spells.dimensional_rift:ready() and spells.dimensional_rift:castable(customTarget) then
+        spells.dimensional_rift:cast(customTarget)
 
         return true
     end
@@ -1924,9 +2030,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/infernal_bolt,if=buff.backdraft.stack>=2
 
-    if spells.infernal_bolt and spells.infernal_bolt:ready() and spells.infernal_bolt:castable(target) then
+    if spells.infernal_bolt and spells.infernal_bolt:ready() and spells.infernal_bolt:castable(customTarget) then
         if player.auracount(117828) >= 2 then
-            spells.infernal_bolt:cast(target)
+            spells.infernal_bolt:cast(customTarget)
 
             return true
         end
@@ -1936,9 +2042,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/incinerate,if=buff.backdraft.stack>=2
 
-    if spells.incinerate and spells.incinerate:ready() and spells.incinerate:castable(target) then
+    if spells.incinerate and spells.incinerate:ready() and spells.incinerate:castable(customTarget) then
         if player.auracount(117828) >= 2 then
-            spells.incinerate:cast(target)
+            spells.incinerate:cast(customTarget)
 
             return true
         end
@@ -1948,9 +2054,9 @@ local function Dps()
 
     -- actions.assisted_combat+=/conflagrate,if=charges>=2
 
-    if spells.conflagrate and spells.conflagrate:ready() and spells.conflagrate:castable(target) then
+    if spells.conflagrate and spells.conflagrate:ready() and spells.conflagrate:castable(customTarget) then
         if spells.conflagrate:charges() >= 2 then
-            spells.conflagrate:cast(target)
+            spells.conflagrate:cast(customTarget)
 
             return true
         end
@@ -1960,8 +2066,8 @@ local function Dps()
 
     -- actions.assisted_combat+=/infernal_bolt,cooldown_allow_casting_success=1
 
-    if spells.infernal_bolt and spells.infernal_bolt:ready() and spells.infernal_bolt:castable(target) then
-        spells.infernal_bolt:cast(target)
+    if spells.infernal_bolt and spells.infernal_bolt:ready() and spells.infernal_bolt:castable(customTarget) then
+        spells.infernal_bolt:cast(customTarget)
 
         return true
     end
@@ -1970,8 +2076,8 @@ local function Dps()
 
     -- actions.assisted_combat+=/incinerate,cooldown_allow_casting_success=1
 
-    if spells.incinerate and spells.incinerate:ready() and spells.incinerate:castable(target) then
-        spells.incinerate:cast(target)
+    if spells.incinerate and spells.incinerate:ready() and spells.incinerate:castable(customTarget) then
+        spells.incinerate:cast(customTarget)
 
         return true
     end
@@ -1980,8 +2086,8 @@ local function Dps()
 
     -- actions.assisted_combat+=/infernal_bolt
 
-    if spells.infernal_bolt and spells.infernal_bolt:ready() and spells.infernal_bolt:castable(target) then
-        spells.infernal_bolt:cast(target)
+    if spells.infernal_bolt and spells.infernal_bolt:ready() and spells.infernal_bolt:castable(customTarget) then
+        spells.infernal_bolt:cast(customTarget)
 
         return true
     end
@@ -1990,8 +2096,8 @@ local function Dps()
 
     -- actions.assisted_combat+=/incinerate
 
-    if spells.incinerate and spells.incinerate:ready() and spells.incinerate:castable(target) then
-        spells.incinerate:cast(target)
+    if spells.incinerate and spells.incinerate:ready() and spells.incinerate:castable(customTarget) then
+        spells.incinerate:cast(customTarget)
 
         return true
     end
@@ -2191,11 +2297,11 @@ local function CheckRotationVersion()
 
         print("版本: " .. ROTATION_VERSION)
 
-        print("• 新增大灾变单独AOE阈值")
+        print("• 新增自定义目标选择逻辑")
 
-        print("• 删除默认状态栏，新增小爆发/大爆发状态栏")
+        print("• 优化大灾变使用时机判断")
 
-        print("• 优化状态栏控制逻辑")
+        print("• 修复浩劫dot目标选择问题")
 
         print("=============================")
 
