@@ -556,6 +556,14 @@ local function CreateInterface()
                 print("宏命令已复制到剪贴板：/aurora prepull")
             end
         })
+    -- 【新增】自定义目标选择宏命令按钮
+        :Button({
+            text = "复制智能目标宏",
+            onClick = function()
+                _G.CopyToClipboard("/aurora customtarget")
+                print("宏命令已复制到剪贴板：/aurora customtarget")
+            end
+        })
 end
 
 -- 注册状态栏
@@ -652,6 +660,14 @@ local function RegisterStatusToggles()
         icon = 29722, -- 烧尽图标
         tooltip = "开启后强制使用单体技能，忽略AOE阈值",
         default = false
+    })
+    -- 【新增】自定义目标选择状态栏
+    Aurora.Rotation.CustomTargetToggle = Aurora:AddGlobalToggle({
+        label = "智能目标",
+        var = "RoyWarlock_CustomTarget",
+        icon = 132204, -- 目标图标
+        tooltip = "启用智能目标选择，自动选择最佳目标",
+        default = true
     })
 
     print("RoyWarlock 状态栏已加载!")
